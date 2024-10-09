@@ -42,25 +42,15 @@ test decode {
 }
 
 fn readLong(comptime T: type, in: []const u8) T {
-    const shift_type = switch (@typeInfo(T).int.bits) {
-        64 => u6,
-        32 => u5,
-        16 => u4,
-        8 => u3,
-        else => @compileError("type not supported"),
-    };
     var res: T = 0;
-    var shift: shift_type = 0;
-    for (in[0..]) |b| {
-        if (b & 0x80 == 0) {
-            return @as(T, b & 0x7f) << shift | res;
-        }
-
-        res = @as(T, b & 0x7f) << shift | res;
+    var shift: std.math.Log2Int(T) = 0;
+    for (in) |b| {
+        res |= @as(T, b & 0x7f) << shift;
+        if (b & 0x80 == 0)
+            return res;
         shift += 7;
     }
-
-    return res;
+    @panic("read past end of input");
 }
 
 test "read long" {
