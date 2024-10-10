@@ -1,8 +1,20 @@
 const std = @import("std");
+const long = @import("long.zig");
 
 pub fn main() !void {
-    const l = try readLong(i64, &[_]u8{ 0b10010110, 0b1, 0b1 });
-    std.debug.print("long {}", .{l});
+    const l = try long.read(i64, &[_]u8{ 0b10010110, 0b1, 0b1 });
+
+    var buf: [2]u8 = undefined;
+    try long.write(i64, l, &buf);
+
+    const str: []const u8 =
+        \\long:
+        \\  {}
+        \\  {x}
+        \\  {b}
+    ;
+
+    std.debug.print(str, .{l, buf, buf});
 }
 
 fn encode(n: i64) i64 {
@@ -39,48 +51,4 @@ test decode {
 
     try std.testing.expectEqual(-1, decode(std.mem.readVarInt(i64, &[_]u8{1}, .little)));
     try std.testing.expectEqual(1, decode(std.mem.readVarInt(i64, &[_]u8{2}, .little)));
-}
-
-const ReadLongError = error{
-    Overflow,
-    InvalidEOF,
-};
-
-fn readLong(comptime T: type, in: []const u8) ReadLongError!T {
-    var res: T = 0;
-    // We need an unsigned int that will not shift past the size of T.  For
-    // example, i64 will create a u6, because 0b111111 == 63. Thus we cannot
-    // shift outside of the integer range.
-    var shift: std.math.Log2Int(T) = 0;
-    for (in) |b| {
-        res |= @as(T, b & 0x7f) << shift;
-        if (b & 0x80 == 0) {
-            return res;
-        }
-
-        const shifted = @addWithOverflow(shift, 7);
-        if (shifted[1] == 0) {
-            shift = shifted[0];
-        } else {
-            return ReadLongError.Overflow;
-        }
-    }
-    return ReadLongError.InvalidEOF;
-}
-
-test "read long" {
-    try std.testing.expectError(ReadLongError.Overflow, readLong(i16, &[_]u8{ 0b10010110, 0b10010110, 0b10010110, 0b10010110, 0b00000001, 0b1 }));
-    try std.testing.expectError(ReadLongError.InvalidEOF, readLong(i64, &[_]u8{ 0b10010110, 0b10010110, 0b10010110, 0b10010110 }));
-
-    try std.testing.expectEqual(150, readLong(i16, &[_]u8{ 0b10010110, 0b00000001, 0b1 }));
-
-    try std.testing.expectEqual(150, readLong(i32, &[_]u8{ 0b10010110, 0b1, 0b1 }));
-
-    try std.testing.expectEqual(150, readLong(i64, &[_]u8{ 0b10010110, 0b1, 0b1 }));
-
-    const negativeTwo = try readLong(i64, &[_]u8{ 0b11111110, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b00000001 });
-
-    try std.testing.expectEqual(-2, negativeTwo);
-
-    try std.testing.expectEqual(3, encode(negativeTwo));
 }
