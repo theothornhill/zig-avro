@@ -1,7 +1,7 @@
 const std = @import("std");
 
 pub fn main() !void {
-    const l = readLong(i64, &[_]u8{ 0b10010110, 0b1, 0b1 });
+    const l = try readLong(i64, &[_]u8{ 0b10010110, 0b1, 0b1 });
     std.debug.print("long {}", .{l});
 }
 
@@ -64,7 +64,6 @@ fn readLong(comptime T: type, in: []const u8) ReadLongError!T {
         } else {
             return ReadLongError.Overflow;
         }
-
     }
     return ReadLongError.InvalidEOF;
 }
@@ -79,18 +78,7 @@ test "read long" {
 
     try std.testing.expectEqual(150, readLong(i64, &[_]u8{ 0b10010110, 0b1, 0b1 }));
 
-    const negativeTwo = try readLong(i64, &[_]u8{
-        0b11111110,
-        0b11111111,
-        0b11111111,
-        0b11111111,
-        0b11111111,
-        0b11111111,
-        0b11111111,
-        0b11111111,
-        0b11111111,
-        0b00000001
-    });
+    const negativeTwo = try readLong(i64, &[_]u8{ 0b11111110, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b11111111, 0b00000001 });
 
     try std.testing.expectEqual(-2, negativeTwo);
 
