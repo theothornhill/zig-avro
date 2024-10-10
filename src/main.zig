@@ -71,6 +71,8 @@ fn readLong(comptime T: type, in: []const u8) ReadLongError!T {
 
 test "read long" {
     try std.testing.expectError(ReadLongError.Overflow, readLong(i16, &[_]u8{ 0b10010110, 0b10010110, 0b10010110, 0b10010110, 0b00000001, 0b1 }));
+    try std.testing.expectError(ReadLongError.InvalidEOF, readLong(i64, &[_]u8{ 0b10010110, 0b10010110, 0b10010110, 0b10010110 }));
+
     try std.testing.expectEqual(150, readLong(i16, &[_]u8{ 0b10010110, 0b00000001, 0b1 }));
 
     try std.testing.expectEqual(150, readLong(i32, &[_]u8{ 0b10010110, 0b1, 0b1 }));
