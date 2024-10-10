@@ -48,6 +48,9 @@ const ReadLongError = error{
 
 fn readLong(comptime T: type, in: []const u8) ReadLongError!T {
     var res: T = 0;
+    // We need an unsigned int that will not shift past the size of T.  For
+    // example, i64 will create a u6, because 0b111111 == 63. Thus we cannot
+    // shift outside of the integer range.
     var shift: std.math.Log2Int(T) = 0;
     for (in) |b| {
         res |= @as(T, b & 0x7f) << shift;
