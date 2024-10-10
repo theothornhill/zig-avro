@@ -41,27 +41,40 @@ test decode {
     try std.testing.expectEqual(1, decode(std.mem.readVarInt(i64, &[_]u8{2}, .little)));
 }
 
-fn readLong(comptime T: type, in: []const u8) T {
+const ReadLongError = error{
+    Overflow,
+    InvalidEOF,
+};
+
+fn readLong(comptime T: type, in: []const u8) ReadLongError!T {
     var res: T = 0;
     var shift: std.math.Log2Int(T) = 0;
     for (in) |b| {
         res |= @as(T, b & 0x7f) << shift;
-        if (b & 0x80 == 0)
+        if (b & 0x80 == 0) {
             return res;
-        shift += 7;
+        }
+
+        const shifted = @addWithOverflow(shift, 7);
+        if (shifted[1] == 0) {
+            shift = shifted[0];
+        } else {
+            return ReadLongError.Overflow;
+        }
+
     }
-    @panic("read past end of input");
+    return ReadLongError.InvalidEOF;
 }
 
 test "read long" {
-    // try std.testing.expectEqual(150, readLong(i16, &[_]u8{ 0b10010110, 0b10010110, 0b10010110, 0b10010110, 0b00000001, 0b1 }));
+    try std.testing.expectError(ReadLongError.Overflow, readLong(i16, &[_]u8{ 0b10010110, 0b10010110, 0b10010110, 0b10010110, 0b00000001, 0b1 }));
     try std.testing.expectEqual(150, readLong(i16, &[_]u8{ 0b10010110, 0b00000001, 0b1 }));
 
     try std.testing.expectEqual(150, readLong(i32, &[_]u8{ 0b10010110, 0b1, 0b1 }));
 
     try std.testing.expectEqual(150, readLong(i64, &[_]u8{ 0b10010110, 0b1, 0b1 }));
 
-    const negativeTwo = readLong(i64, &[_]u8{
+    const negativeTwo = try readLong(i64, &[_]u8{
         0b11111110,
         0b11111111,
         0b11111111,
