@@ -1,3 +1,4 @@
+const long = @import("long.zig");
 const std = @import("std");
 
 const ReadStringError = error{
@@ -5,42 +6,35 @@ const ReadStringError = error{
 };
 
 /// Read a string from input `in`.
-///
-/// Makes assumption that index 0 in the input is the start of the string, and
-/// that `len` tells us how many characters we should read.
-pub fn read(in: []const u8, len: usize) ReadStringError![]const u8 {
+/// Returns slice of `in` after end of string.
+/// `dst` is set to a slice of `in` containing the string.
+pub fn read(dst: *[]const u8, in: []const u8) ![]const u8 {
+    var len: i64 = 0;
+    const rem = try long.read(i64, &len, in);
     if (in.len < len) {
         return ReadStringError.InvalidEOF;
     }
-
-    return in[0..len];
+    dst.* = rem[0..@bitCast(len)];
+    return rem[@bitCast(len)..];
 }
 
 test read {
-    try std.testing.expectError(ReadStringError.InvalidEOF, read("hello", 10));
+    var out: []u8 = &.{};
+    try std.testing.expectError(ReadStringError.InvalidEOF, read(&out, &[_]u8{20} ++ "hello"));
 
-    try std.testing.expectEqualStrings("hello", try read("hello", 5));
-    try std.testing.expectEqualStrings("hello", try read("hello there", 5));
+    var rem = try read(&out, &[_]u8{5 << 1} ++ "hello");
+    try std.testing.expectEqual(0, rem.len);
+    try std.testing.expectEqualStrings("hello", out);
 
-    var str: []const u8 = "hello there dude! ";
-    var offset: usize = 0;
-    const increment: usize = 6;
-    const results = [_][]const u8{
-        "hello ",
-        "there ",
-        "dude! ",
-    };
-    var iteration: usize = 0;
+    rem = try read(&out, &[_]u8{4 << 1} ++ "hello");
+    try std.testing.expectEqual(1, rem.len);
+    try std.testing.expectEqualStrings("hell", out);
 
-    while (offset <= str.len) {
-        try std.testing.expectEqualStrings(results[iteration], try read(str, increment));
-        offset += increment;
-        str = str[offset..];
-        iteration += 1;
-    }
-
-    const emojistr: []const u8 = "🤪🤑🤑🤑🤑";
-    try std.testing.expectEqualStrings(emojistr, try read(emojistr, emojistr.len));
+    var buf = [_]u8{ 3 << 1, 'D', 'O', 'G' };
+    rem = try read(&out, &buf);
+    try std.testing.expectEqual(0, rem.len);
+    buf[2] = 'I';
+    try std.testing.expectEqualStrings("DIG", out);
 }
 
 pub const WriteStringError = error{
