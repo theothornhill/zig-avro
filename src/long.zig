@@ -5,16 +5,18 @@ const ReadLongError = error{
     InvalidEOF,
 };
 
-pub fn read(comptime T: type, in: []const u8) ReadLongError!T {
-    var res: T = 0;
+pub fn read(comptime T: type, dst: *T, in: []const u8) ReadLongError![]const u8 {
+    var res: i64 = 0;
     // We need an unsigned int that will not shift past the size of T.  For
     // example, i64 will create a u6, because 0b111111 == 63. Thus we cannot
     // shift outside of the integer range.
     var shift: std.math.Log2Int(T) = 0;
-    for (in) |b| {
+    for (in, 0..) |b, i| {
         res |= @as(T, b & 0x7f) << shift;
         if (b & 0x80 == 0) {
-            return res;
+            res = (res >> 1) ^ (-(res & 1));
+            dst.* = @intCast(@as(i64, @bitCast(res)));
+            return in[i + 1 ..];
         }
 
         const shifted = @addWithOverflow(shift, 7);
@@ -55,7 +57,11 @@ pub fn write(comptime T: type, value: T, buf: []u8) !void {
 }
 
 test read {
-    try std.testing.expectError(ReadLongError.Overflow, read(i16, &[_]u8{
+    var test_i16: i16 = 123;
+    var test_i32: i32 = 123;
+    var test_i64: i64 = 123;
+
+    try std.testing.expectError(ReadLongError.Overflow, read(i16, &test_i16, &[_]u8{
         0b10010110,
         0b10010110,
         0b10010110,
@@ -64,32 +70,38 @@ test read {
         0b1,
     }));
 
-    try std.testing.expectError(ReadLongError.InvalidEOF, read(i64, &[_]u8{
+    try std.testing.expectError(ReadLongError.InvalidEOF, read(i64, &test_i64, &[_]u8{
         0b10010110,
         0b10010110,
         0b10010110,
         0b10010110,
     }));
 
-    try std.testing.expectEqual(150, read(i16, &[_]u8{
+    const rem_i16 = try read(i16, &test_i16, &[_]u8{
         0b10010110,
         0b00000001,
         0b1,
-    }));
+    });
+    try std.testing.expectEqual(rem_i16.len, 1);
+    try std.testing.expectEqual(75, test_i16);
 
-    try std.testing.expectEqual(150, read(i32, &[_]u8{
+    const rem_i32 = try read(i32, &test_i32, &[_]u8{
         0b10010110,
         0b1,
         0b1,
-    }));
+    });
+    try std.testing.expectEqual(rem_i32.len, 1);
+    try std.testing.expectEqual(75, test_i32);
 
-    try std.testing.expectEqual(150, read(i64, &[_]u8{
+    const rem_i64 = try read(i64, &test_i64, &[_]u8{
         0b10010110,
         0b1,
         0b1,
-    }));
+    });
+    try std.testing.expectEqual(rem_i64.len, 1);
+    try std.testing.expectEqual(75, test_i64);
 
-    const negativeTwo = try read(i64, &[_]u8{
+    const rem_neg1 = try read(i64, &test_i64, &[_]u8{
         0b11111110,
         0b11111111,
         0b11111111,
@@ -101,8 +113,8 @@ test read {
         0b11111111,
         0b00000001,
     });
-
-    try std.testing.expectEqual(-2, negativeTwo);
+    try std.testing.expectEqual(rem_neg1.len, 0);
+    try std.testing.expectEqual(-1, test_i64);
 }
 
 test write {
