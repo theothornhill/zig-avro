@@ -3,15 +3,17 @@ const string = @import("string.zig");
 const long = @import("long.zig");
 const main = @import("main.zig");
 
-const ArrayError = error{
+const ReadRecordError = long.ReadLongError || string.ReadStringError;
+
+const ReadArrayError = error{
     UninitializedOrSpentIterator,
-};
+} || ReadRecordError;
 
 const ExampleStruct = struct {
     title: []u8 = &.{},
     count: i16 = 0,
     sum: i64 = 0,
-    pub fn consume(self: *ExampleStruct, buf: []const u8) ![]const u8 {
+    pub fn consume(self: *ExampleStruct, buf: []const u8) ReadRecordError![]const u8 {
         var rem = buf;
         rem = try string.read(&self.title, rem);
         rem = try long.read(i16, &self.count, rem);
@@ -51,9 +53,9 @@ const ArrayOfExampleStruct = struct {
     /// Returns null if there are no remaining items.
     ///
     /// This iterator can only be used once.
-    pub fn next(self: *ArrayOfExampleStruct) !?*ExampleStruct {
+    pub fn next(self: *ArrayOfExampleStruct) ReadArrayError!?*ExampleStruct {
         if (!self.valid) {
-            return ArrayError.UninitializedOrSpentIterator;
+            return ReadArrayError.UninitializedOrSpentIterator;
         }
         if (self.currentBlockLen == 0)
             self.restBuf = try long.read(usize, &self.currentBlockLen, self.restBuf);
@@ -75,7 +77,7 @@ const ArrayOfExampleStruct = struct {
     /// bytes allowing us to skip past it faster. This is signalled by having a negative
     /// `blockItems`, in which we should flip it to positive and read another varint
     /// describing the `blockBytesLength`.
-    pub fn consume(self: *ArrayOfExampleStruct, buf: []const u8) ![]const u8 {
+    pub fn consume(self: *ArrayOfExampleStruct, buf: []const u8) ReadArrayError![]const u8 {
         self.restBuf = buf;
         var blockItems: i64 = 0;
         var blockBytesLength: usize = 0;
@@ -212,9 +214,9 @@ test "incorrect usage" {
     const buf = &[_]u8{
         0, // array end
     };
-    try std.testing.expectError(ArrayError.UninitializedOrSpentIterator, a.next());
+    try std.testing.expectError(ReadArrayError.UninitializedOrSpentIterator, a.next());
     const rem = try a.consume(buf);
     try std.testing.expectEqual(0, rem.len);
     try std.testing.expectEqual(null, a.next());
-    try std.testing.expectError(ArrayError.UninitializedOrSpentIterator, a.next());
+    try std.testing.expectError(ReadArrayError.UninitializedOrSpentIterator, a.next());
 }

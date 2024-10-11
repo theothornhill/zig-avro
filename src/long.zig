@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const ReadLongError = error{
+pub const ReadLongError = error{
     Overflow,
     InvalidEOF,
 };

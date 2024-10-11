@@ -1,14 +1,14 @@
 const long = @import("long.zig");
 const std = @import("std");
 
-const ReadStringError = error{
+pub const ReadStringError = error{
     InvalidEOF,
-};
+} || long.ReadLongError;
 
 /// Read a string from input `in`.
 /// Returns slice of `in` after end of string.
 /// `dst` is set to a slice of `in` containing the string.
-pub fn read(dst: *[]const u8, in: []const u8) ![]const u8 {
+pub fn read(dst: *[]const u8, in: []const u8) ReadStringError![]const u8 {
     var len: i64 = 0;
     const rem = try long.read(i64, &len, in);
     if (in.len < len) {
