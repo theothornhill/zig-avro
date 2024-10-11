@@ -6,7 +6,7 @@ const ReadLongError = error{
 };
 
 inline fn zigZagDecode(comptime T: type, n: T) T {
-    return (n >> 1) ^ (-(n & 1));
+    return (n >> 1) ^ (0 -% (n & 1));
 }
 
 pub fn read(comptime T: type, dst: *T, in: []const u8) ReadLongError![]const u8 {
@@ -67,6 +67,7 @@ test read {
     var test_i16: i16 = 123;
     var test_i32: i32 = 123;
     var test_i64: i64 = 123;
+    var test_u64: u64 = 123;
 
     try std.testing.expectError(ReadLongError.Overflow, read(i16, &test_i16, &[_]u8{
         0b10010110,
@@ -108,7 +109,7 @@ test read {
     try std.testing.expectEqual(rem_i64.len, 1);
     try std.testing.expectEqual(75, test_i64);
 
-    const rem_neg1 = try read(i64, &test_i64, &[_]u8{
+    const rem_large = try read(u64, &test_u64, &[_]u8{
         0b11111110,
         0b11111111,
         0b11111111,
@@ -120,8 +121,14 @@ test read {
         0b11111111,
         0b00000001,
     });
-    try std.testing.expectEqual(rem_neg1.len, 0);
-    try std.testing.expectEqual(18446744073709551615, @as(u64, @bitCast(test_i64)));
+    try std.testing.expectEqual(rem_large.len, 0);
+    try std.testing.expectEqual(9223372036854775807, test_u64);
+
+    const rem_maxU64 = try read(u64, &test_u64, &[_]u8{
+        0b00000001,
+    });
+    try std.testing.expectEqual(rem_maxU64.len, 0);
+    try std.testing.expectEqual(18446744073709551615, test_u64);
 }
 
 test write {
