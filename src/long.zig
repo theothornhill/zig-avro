@@ -5,8 +5,12 @@ const ReadLongError = error{
     InvalidEOF,
 };
 
+inline fn zigZagDecode(comptime T: type, n: T) T {
+    return (n >> 1) ^ (-(n & 1));
+}
+
 pub fn read(comptime T: type, dst: *T, in: []const u8) ReadLongError![]const u8 {
-    var res: i64 = 0;
+    var res: T = 0;
     // We need an unsigned int that will not shift past the size of T.  For
     // example, i64 will create a u6, because 0b111111 == 63. Thus we cannot
     // shift outside of the integer range.
@@ -14,8 +18,7 @@ pub fn read(comptime T: type, dst: *T, in: []const u8) ReadLongError![]const u8 
     for (in, 0..) |b, i| {
         res |= @as(T, b & 0x7f) << shift;
         if (b & 0x80 == 0) {
-            res = (res >> 1) ^ (-(res & 1));
-            dst.* = @intCast(@as(i64, @bitCast(res)));
+            dst.* = zigZagDecode(T, res);
             return in[i + 1 ..];
         }
 
@@ -33,8 +36,12 @@ pub const WriteLongError = error{
     BufferTooSmall,
 };
 
+inline fn zigZagEncode(comptime T: type, n: T) T {
+    return (n << 1) ^ (n >> @bitSizeOf(T) - 1);
+}
+
 pub fn write(comptime T: type, value: T, buf: []u8) !void {
-    var v: u64 = @bitCast(value);
+    var v: T = zigZagEncode(T, value);
     var offset: usize = 0;
 
     // As long as we have continuation bits as the most significant bit per
@@ -114,34 +121,25 @@ test read {
         0b00000001,
     });
     try std.testing.expectEqual(rem_neg1.len, 0);
-    try std.testing.expectEqual(-1, test_i64);
+    try std.testing.expectEqual(18446744073709551615, @as(u64, @bitCast(test_i64)));
 }
 
 test write {
-    const res = &[_]u8{ 0b10010110, 0b00000001 };
+    const res = &[_]u8{ 0xAC, 0x02 };
 
     var buf: [2]u8 = undefined;
     try write(i64, 150, &buf);
     try std.testing.expectEqualSlices(u8, res, &buf);
 
     const negativeTwo = &[_]u8{
-        0b11111110,
-        0b11111111,
-        0b11111111,
-        0b11111111,
-        0b11111111,
-        0b11111111,
-        0b11111111,
-        0b11111111,
-        0b11111111,
-        0b00000001,
+        0b00000011,
     };
 
-    var negBuf: [10]u8 = undefined;
+    var negBuf: [1]u8 = undefined;
     try write(i64, -2, &negBuf);
     try std.testing.expectEqualSlices(u8, negativeTwo, &negBuf);
 
-    var negBuf2: [9]u8 = undefined;
+    var negBuf2: [0]u8 = undefined;
     try std.testing.expectError(WriteLongError.BufferTooSmall, write(i64, -2, &negBuf2));
 
     var buf3: [0]u8 = undefined;
