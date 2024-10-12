@@ -93,7 +93,7 @@ test "array of 1" {
     const rem = try a.consume(buf);
     try std.testing.expectEqual(1, rem.len);
     try std.testing.expectEqual(1, a.len);
-    const i = try a.next() orelse unreachable;
+    const i = (try a.next()).?;
     try std.testing.expectEqual(2, i.value);
     try std.testing.expectEqual(null, a.next());
 }
@@ -112,9 +112,9 @@ test "array of 2" {
     const rem = try a.consume(buf);
     try std.testing.expectEqual(0, rem.len);
     try std.testing.expectEqual(2, a.len);
-    var i = try a.next() orelse unreachable;
+    var i = (try a.next()).?;
     try std.testing.expectEqualStrings("A", i.value);
-    i = try a.next() orelse unreachable;
+    i = (try a.next()).?;
     try std.testing.expectEqualStrings("BC", i.value);
     try std.testing.expectEqual(null, a.next());
 }
@@ -134,9 +134,9 @@ test "array of 2 in 2 blocks" {
     const rem = try a.consume(buf);
     try std.testing.expectEqual(0, rem.len);
     try std.testing.expectEqual(2, a.len);
-    var i = try a.next() orelse unreachable;
+    var i = (try a.next()).?;
     try std.testing.expectEqualStrings("A", i.value);
-    i = try a.next() orelse unreachable;
+    i = (try a.next()).?;
     try std.testing.expectEqualStrings("BC", i.value);
     try std.testing.expectEqual(null, a.next());
 }
@@ -202,18 +202,18 @@ test "2d array" {
     const rem = try a.consume(buf);
     try std.testing.expectEqual(0, rem.len);
     try std.testing.expectEqual(2, a.len);
-    const row1 = try a.next() orelse unreachable;
+    const row1 = (try a.next()).?;
     try std.testing.expectEqual(2, row1.len);
-    var cell = try row1.next() orelse unreachable;
+    var cell = (try row1.next()).?;
     try std.testing.expectEqual(1, cell.value);
-    cell = try row1.next() orelse unreachable;
+    cell = (try row1.next()).?;
     try std.testing.expectEqual(2, cell.value);
     try std.testing.expectEqual(null, row1.next());
-    const row2 = try a.next() orelse unreachable;
+    const row2 = (try a.next()).?;
     try std.testing.expectEqual(2, row2.len);
-    cell = try row2.next() orelse unreachable;
+    cell = (try row2.next()).?;
     try std.testing.expectEqual(3, cell.value);
-    cell = try row2.next() orelse unreachable;
+    cell = (try row2.next()).?;
     try std.testing.expectEqual(4, cell.value);
     try std.testing.expectEqual(null, row2.next());
     try std.testing.expectEqual(null, a.next());
