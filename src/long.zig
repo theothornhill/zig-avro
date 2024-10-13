@@ -6,9 +6,9 @@ pub const ReadLongError = error{
     InvalidEOF,
 };
 
-inline fn zigZagDecode(comptime T: type, n: T) T {
-    return (n >> 1) ^ (0 -% (n & 1));
-}
+pub const WriteLongError = error{
+    Overflow,
+};
 
 pub fn read(comptime T: type, dst: *T, buf: []const u8) ![]const u8 {
     var stream = std.io.fixedBufferStream(buf);
@@ -16,14 +16,6 @@ pub fn read(comptime T: type, dst: *T, buf: []const u8) ![]const u8 {
     dst.* = zigZagDecode(T, num);
 
     return buf[try stream.getPos()..];
-}
-
-pub const WriteLongError = error{
-    Overflow,
-};
-
-inline fn zigZagEncode(comptime T: type, n: T) T {
-    return (n << 1) ^ (n >> @bitSizeOf(T) - 1);
 }
 
 pub fn write(comptime T: type, value: T, buf: []u8) !void {
@@ -35,6 +27,14 @@ pub fn write(comptime T: type, value: T, buf: []u8) !void {
         stream.writer(),
         zigZagEncode(T, value),
     );
+}
+
+inline fn zigZagEncode(comptime T: type, n: T) T {
+    return (n << 1) ^ (n >> @bitSizeOf(T) - 1);
+}
+
+inline fn zigZagDecode(comptime T: type, n: T) T {
+    return (n >> 1) ^ (0 -% (n & 1));
 }
 
 test read {
@@ -134,4 +134,32 @@ test write {
 
     var buf3: [0]u8 = undefined;
     try std.testing.expectError(error.NoSpaceLeft, write(i64, 1, &buf3));
+}
+
+test zigZagEncode {
+    try std.testing.expectEqual(0, zigZagEncode(i64, 0));
+    try std.testing.expectEqual(1, zigZagEncode(i64, -1));
+    try std.testing.expectEqual(2, zigZagEncode(i64, 1));
+    try std.testing.expectEqual(3, zigZagEncode(i64, -2));
+    try std.testing.expectEqual(4, zigZagEncode(i64, 2));
+    try std.testing.expectEqual(4294967294, zigZagEncode(i64, 2147483647));
+    try std.testing.expectEqual(4294967293, zigZagEncode(i64, -2147483647));
+
+    try std.testing.expectEqual(2, zigZagEncode(i64, std.mem.readVarInt(i64, &[_]u8{1}, .little)));
+    try std.testing.expectEqual(4, zigZagEncode(i64, std.mem.readVarInt(i64, &[_]u8{2}, .little)));
+}
+
+test zigZagDecode {
+    try std.testing.expectEqual(0, zigZagDecode(i64, 0));
+    try std.testing.expectEqual(-1, zigZagDecode(i64, 1));
+    try std.testing.expectEqual(1, zigZagDecode(i64, 2));
+    try std.testing.expectEqual(-2, zigZagDecode(i64, 3));
+    try std.testing.expectEqual(2, zigZagDecode(i64, 4));
+    try std.testing.expectEqual(3, zigZagDecode(i64, 6));
+    try std.testing.expectEqual(3, zigZagDecode(i64, 0x6));
+    try std.testing.expectEqual(2147483647, zigZagDecode(i64, 4294967294));
+    try std.testing.expectEqual(-2147483647, zigZagDecode(i64, 4294967293));
+
+    try std.testing.expectEqual(-1, zigZagDecode(i64, std.mem.readVarInt(i64, &[_]u8{1}, .little)));
+    try std.testing.expectEqual(1, zigZagDecode(i64, std.mem.readVarInt(i64, &[_]u8{2}, .little)));
 }
