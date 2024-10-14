@@ -60,11 +60,11 @@ pub fn Array(comptime T: type) type {
         pub fn consume(self: *Array(T), buf: []const u8) ![]const u8 {
             self.len = 0;
             self.restBuf = buf;
-            var blockItems: i64 = 0;
+            var blockItems: u64 = 0;
             var blockBytesLength: usize = 0;
             var rem: []const u8 = buf;
             while (true) {
-                rem = try long.read(i64, &blockItems, rem);
+                rem = try long.read(u64, &blockItems, rem);
                 if (blockItems == 0) {
                     self.valid = true;
                     return rem;
@@ -83,7 +83,7 @@ pub fn Array(comptime T: type) type {
 }
 
 test "array of 1" {
-    var a = Array(Number(i64)){};
+    var a = Array(Number(u64)){};
     const buf = &[_]u8{
         1 << 1, // array block length 1
         2 << 1, // number 2
@@ -169,7 +169,7 @@ test "array of 0" {
 }
 
 test "incorrect usage" {
-    var a = Array(Number(i32)){};
+    var a = Array(Number(u32)){};
     const buf = &[_]u8{
         0, // array end
     };
@@ -186,7 +186,7 @@ test "incorrect usage" {
 // |3|4|
 // +-+-+
 test "2d array" {
-    var a = Array(Array(Number(i32))){};
+    var a = Array(Array(Number(u32))){};
     const buf = &[_]u8{
         2 << 1, // 2 rows
         2 << 1, // 1st row: 2 columns
