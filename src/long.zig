@@ -30,11 +30,11 @@ pub fn write(comptime T: type, value: T, buf: []u8) !void {
 }
 
 inline fn zigZagEncode(comptime T: type, n: T) T {
-    return (n << 1) ^ (n >> @bitSizeOf(T) - 1);
+    return if (n < 0) ~(n << 1) else (n << 1);
 }
 
 inline fn zigZagDecode(comptime T: type, n: T) T {
-    return (n >> 1) ^ (0 -% (n & 1));
+    return if (n & 1 == 1) ~(n >> 1) else (n >> 1);
 }
 
 test read {
