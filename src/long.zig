@@ -16,7 +16,9 @@ pub fn read(comptime T: type, dst: *T, buf: []const u8) ![]const u8 {
         i64 => u64,
         u32 => u32,
         u64 => u64,
-        else => @compileError("supported types: i32, u32, i64, u64"),
+        usize => usize,
+        isize => usize,
+        else => @compileError("supported types: i32, u32, i64, u64, usize, isize. Got " ++ @typeName(T)),
     };
     var stream = std.io.fixedBufferStream(buf);
     const num = try leb.readUleb128(U, stream.reader());
@@ -31,7 +33,9 @@ pub fn write(comptime T: type, value: T, buf: []u8) !void {
         i64 => u64,
         u32 => u32,
         u64 => u64,
-        else => @compileError("supported types: i32, u32, i64, u64"),
+        usize => usize,
+        isize => usize,
+        else => @compileError("supported types: i32, u32, i64, u64, usize, isize. Got " ++ @typeName(T)),
     };
     var stream = std.io.fixedBufferStream(buf);
     try leb.writeUleb128(

@@ -6,7 +6,7 @@ const reader = @import("reader.zig");
 
 const ExampleStruct = struct {
     title: reader.String = .{},
-    count: reader.Number(i16) = .{},
+    count: reader.Number(i32) = .{},
     sum: reader.Number(i64) = .{},
     pub fn consume(self: *ExampleStruct, buf: []const u8) ![]const u8 {
         var rem = buf;
