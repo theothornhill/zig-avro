@@ -11,18 +11,32 @@ pub const WriteLongError = error{
 };
 
 pub fn read(comptime T: type, dst: *T, buf: []const u8) ![]const u8 {
+    const U: type = switch (T) {
+        i32 => u32,
+        i64 => u64,
+        u32 => u32,
+        u64 => u64,
+        else => @compileError("supported types: i32, u32, i64, u64"),
+    };
     var stream = std.io.fixedBufferStream(buf);
-    const num = try leb.readUleb128(T, stream.reader());
-    dst.* = zigZagDecode(T, num);
+    const num = try leb.readUleb128(U, stream.reader());
+    dst.* = @as(T, @bitCast(zigZagDecode(U, num)));
 
     return buf[try stream.getPos()..];
 }
 
 pub fn write(comptime T: type, value: T, buf: []u8) !void {
+    const U: type = switch (T) {
+        i32 => u32,
+        i64 => u64,
+        u32 => u32,
+        u64 => u64,
+        else => @compileError("supported types: i32, u32, i64, u64"),
+    };
     var stream = std.io.fixedBufferStream(buf);
     try leb.writeUleb128(
         stream.writer(),
-        zigZagEncode(T, @as(T, @bitCast(value))),
+        zigZagEncode(U, @as(U, @bitCast(value))),
     );
 }
 
@@ -57,7 +71,7 @@ test "zig zag fuzz" {
 }
 
 test read {
-    var test_u32: u32 = 123;
+    var test_i32: i32 = 123;
     var test_u64: u64 = 123;
 
     try std.testing.expectError(error.EndOfStream, read(u64, &test_u64, &[_]u8{
@@ -67,13 +81,13 @@ test read {
         0b10010110,
     }));
 
-    const rem_u32 = try read(u32, &test_u32, &[_]u8{
+    const rem_i32 = try read(i32, &test_i32, &[_]u8{
         0b10010110,
         0b1,
         0b1,
     });
-    try std.testing.expectEqual(rem_u32.len, 1);
-    try std.testing.expectEqual(75, test_u32);
+    try std.testing.expectEqual(rem_i32.len, 1);
+    try std.testing.expectEqual(75, test_i32);
 
     const rem_u64 = try read(u64, &test_u64, &[_]u8{
         0b10010110,
