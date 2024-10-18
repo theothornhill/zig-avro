@@ -23,6 +23,44 @@ pub const String = struct {
     }
 };
 
+pub fn Enum(comptime T: type) type {
+    return struct {
+        value: T = undefined,
+        pub fn consume(self: *@This(), buf: []const u8) ![]const u8 {
+            var rem = buf;
+            var enumId: u32 = undefined;
+            rem = try long.read(u32, &enumId, rem);
+            self.value = @enumFromInt(enumId);
+            return rem;
+        }
+    };
+}
+
+test "parse enum from avro" {
+    var e: Enum(enum {
+        take,
+        off,
+        every,
+        zig,
+        move,
+    }) = undefined;
+    const buf = &[_]u8{
+        4 << 1, // move
+        3 << 1, // zig
+        4 << 1, // move
+        3 << 1, // zig
+    };
+    var rem = try e.consume(buf);
+    try std.testing.expectEqual(.move, e.value);
+    rem = try e.consume(rem);
+    try std.testing.expectEqual(.zig, e.value);
+    rem = try e.consume(rem);
+    try std.testing.expectEqual(.move, e.value);
+    rem = try e.consume(rem);
+    try std.testing.expectEqual(.zig, e.value);
+    try std.testing.expectEqual(0, rem.len);
+}
+
 pub fn Record(comptime T: type) type {
     return struct {
         fields: T = undefined,
@@ -114,6 +152,28 @@ test "parse union with invalid enum" {
         1 << 1, // enum 1: invalid
     };
     try std.testing.expectError(ReadError.UnionIdOutOfBounds, e.consume(buf));
+}
+
+test "union over two enums" {
+    var e: Union(union(enum) {
+        wordsA: Enum(enum { enjoy, your, time }),
+        wordsB: Enum(enum { make, a, coffee }),
+    }) = undefined;
+    const buf = &[_]u8{
+        1 << 1, // wordsB
+        0 << 1, // .make
+        0 << 1, // wordsA
+        1 << 1, // .your
+        0 << 1, // wordsA
+        2 << 1, // .time
+    };
+    var rem = try e.consume(buf);
+    try std.testing.expectEqual(.make, e.type.wordsB.value);
+    rem = try e.consume(rem);
+    try std.testing.expectEqual(.your, e.type.wordsA.value);
+    rem = try e.consume(rem);
+    try std.testing.expectEqual(.time, e.type.wordsA.value);
+    try std.testing.expectEqual(0, rem.len);
 }
 
 pub fn Array(comptime T: type) type {
