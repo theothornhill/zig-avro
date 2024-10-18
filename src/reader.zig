@@ -10,28 +10,28 @@ pub const ReadError = error{
 
 pub fn Integer(comptime T: type) type {
     return struct {
-        value: T = 0,
+        v: T = 0,
         pub fn consume(self: *Integer(T), buf: []const u8) ![]const u8 {
-            return try long.read(T, &self.value, buf);
+            return try long.read(T, &self.v, buf);
         }
     };
 }
 
 pub const String = struct {
-    value: []const u8 = &.{},
+    v: []const u8 = &.{},
     pub fn consume(self: *String, buf: []const u8) ![]const u8 {
-        return try string.read(&self.value, buf);
+        return try string.read(&self.v, buf);
     }
 };
 
 pub fn Enum(comptime T: type) type {
     return struct {
-        value: T = undefined,
+        v: T = undefined,
         pub fn consume(self: *@This(), buf: []const u8) ![]const u8 {
             var rem = buf;
             var enumId: u32 = undefined;
             rem = try long.read(u32, &enumId, rem);
-            self.value = @enumFromInt(enumId);
+            self.v = @enumFromInt(enumId);
             return rem;
         }
     };
@@ -52,23 +52,23 @@ test "parse enum from avro" {
         3 << 1, // zig
     };
     var rem = try e.consume(buf);
-    try std.testing.expectEqual(.move, e.value);
+    try std.testing.expectEqual(.move, e.v);
     rem = try e.consume(rem);
-    try std.testing.expectEqual(.zig, e.value);
+    try std.testing.expectEqual(.zig, e.v);
     rem = try e.consume(rem);
-    try std.testing.expectEqual(.move, e.value);
+    try std.testing.expectEqual(.move, e.v);
     rem = try e.consume(rem);
-    try std.testing.expectEqual(.zig, e.value);
+    try std.testing.expectEqual(.zig, e.v);
     try std.testing.expectEqual(0, rem.len);
 }
 
 pub fn Fixed(length: usize) type {
     return struct {
-        value: []const u8 = undefined,
+        v: []const u8 = undefined,
         pub fn consume(self: *@This(), buf: []const u8) ![]const u8 {
             if (buf.len < length)
                 return ReadError.UnexpectedEndOfBuffer;
-            self.value = buf[0..length];
+            self.v = buf[0..length];
             return buf[length..];
         }
     };
@@ -77,7 +77,7 @@ pub fn Fixed(length: usize) type {
 test "parse fixed from avro" {
     var e: Fixed(12) = undefined;
     _ = try e.consume("hello my good friend");
-    try std.testing.expectEqualStrings("hello my goo", e.value);
+    try std.testing.expectEqualStrings("hello my goo", e.v);
 }
 
 test "parse fixed fail" {
@@ -125,9 +125,9 @@ test "parse record from avro" {
         0b00000001, // |
     };
     const rem = try s.consume(buf);
-    try std.testing.expectEqualStrings("HAY", s.record.title.value);
-    try std.testing.expectEqual(-8468, s.record.sum.value);
-    try std.testing.expectEqual(15755, s.record.count.value);
+    try std.testing.expectEqualStrings("HAY", s.record.title.v);
+    try std.testing.expectEqual(-8468, s.record.sum.v);
+    try std.testing.expectEqual(15755, s.record.count.v);
     try std.testing.expectEqual(0, rem.len);
 }
 
@@ -168,10 +168,10 @@ test "parse union" {
     var rem: []const u8 = buf;
     rem = try e.consume(rem);
     try std.testing.expectEqual(2, rem.len);
-    try std.testing.expectEqualStrings("!", e.type.string.value);
+    try std.testing.expectEqualStrings("!", e.type.string.v);
     rem = try e.consume(rem);
     try std.testing.expectEqual(0, rem.len);
-    try std.testing.expectEqual(3, e.type.number.value);
+    try std.testing.expectEqual(3, e.type.number.v);
 }
 
 test "parse union with invalid enum" {
@@ -198,11 +198,11 @@ test "union over two enums" {
         2 << 1, // .time
     };
     var rem = try e.consume(buf);
-    try std.testing.expectEqual(.make, e.type.wordsB.value);
+    try std.testing.expectEqual(.make, e.type.wordsB.v);
     rem = try e.consume(rem);
-    try std.testing.expectEqual(.your, e.type.wordsA.value);
+    try std.testing.expectEqual(.your, e.type.wordsA.v);
     rem = try e.consume(rem);
-    try std.testing.expectEqual(.time, e.type.wordsA.value);
+    try std.testing.expectEqual(.time, e.type.wordsA.v);
     try std.testing.expectEqual(0, rem.len);
 }
 
@@ -279,7 +279,7 @@ test "array of 1" {
     try std.testing.expectEqual(1, rem.len);
     try std.testing.expectEqual(1, a.len);
     const i = (try a.next()).?;
-    try std.testing.expectEqual(2, i.value);
+    try std.testing.expectEqual(2, i.v);
     try std.testing.expectEqual(null, a.next());
 }
 
@@ -298,9 +298,9 @@ test "array of 2" {
     try std.testing.expectEqual(0, rem.len);
     try std.testing.expectEqual(2, a.len);
     var i = (try a.next()).?;
-    try std.testing.expectEqualStrings("A", i.value);
+    try std.testing.expectEqualStrings("A", i.v);
     i = (try a.next()).?;
-    try std.testing.expectEqualStrings("BC", i.value);
+    try std.testing.expectEqualStrings("BC", i.v);
     try std.testing.expectEqual(null, a.next());
 }
 
@@ -320,9 +320,9 @@ test "array of 2 in 2 blocks" {
     try std.testing.expectEqual(0, rem.len);
     try std.testing.expectEqual(2, a.len);
     var i = (try a.next()).?;
-    try std.testing.expectEqualStrings("A", i.value);
+    try std.testing.expectEqualStrings("A", i.v);
     i = (try a.next()).?;
-    try std.testing.expectEqualStrings("BC", i.value);
+    try std.testing.expectEqualStrings("BC", i.v);
     try std.testing.expectEqual(null, a.next());
 }
 
@@ -390,16 +390,16 @@ test "2d array" {
     const row1 = (try a.next()).?;
     try std.testing.expectEqual(2, row1.len);
     var cell = (try row1.next()).?;
-    try std.testing.expectEqual(1, cell.value);
+    try std.testing.expectEqual(1, cell.v);
     cell = (try row1.next()).?;
-    try std.testing.expectEqual(2, cell.value);
+    try std.testing.expectEqual(2, cell.v);
     try std.testing.expectEqual(null, row1.next());
     const row2 = (try a.next()).?;
     try std.testing.expectEqual(2, row2.len);
     cell = (try row2.next()).?;
-    try std.testing.expectEqual(3, cell.value);
+    try std.testing.expectEqual(3, cell.v);
     cell = (try row2.next()).?;
-    try std.testing.expectEqual(4, cell.value);
+    try std.testing.expectEqual(4, cell.v);
     try std.testing.expectEqual(null, row2.next());
     try std.testing.expectEqual(null, a.next());
 }
@@ -432,9 +432,9 @@ test "map of 2" {
     _ = try m.consume(buf);
     try std.testing.expectEqual(2, m.len);
     var i = (try m.next()).?;
-    try std.testing.expectEqual(4, i.key.value);
-    try std.testing.expectEqualStrings("A", i.value.value);
+    try std.testing.expectEqual(4, i.key.v);
+    try std.testing.expectEqualStrings("A", i.value.v);
     i = (try m.next()).?;
-    try std.testing.expectEqual(5, i.key.value);
-    try std.testing.expectEqualStrings("BC", i.value.value);
+    try std.testing.expectEqual(5, i.key.v);
+    try std.testing.expectEqualStrings("BC", i.value.v);
 }
