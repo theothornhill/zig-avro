@@ -63,13 +63,13 @@ test "parse enum from avro" {
 
 pub fn Record(comptime T: type) type {
     return struct {
-        fields: T = undefined,
+        record: T = undefined,
         pub fn consume(self: *@This(), buf: []const u8) ![]const u8 {
             var rem = buf;
             inline for (
                 std.meta.fields(T),
             ) |field| {
-                rem = try @field(self.fields, field.name).consume(rem);
+                rem = try @field(self.record, field.name).consume(rem);
             }
             return rem;
         }
@@ -95,9 +95,9 @@ test "parse record from avro" {
         0b00000001, // |
     };
     const rem = try s.consume(buf);
-    try std.testing.expectEqualStrings("HAY", s.fields.title.value);
-    try std.testing.expectEqual(-8468, s.fields.sum.value);
-    try std.testing.expectEqual(15755, s.fields.count.value);
+    try std.testing.expectEqualStrings("HAY", s.record.title.value);
+    try std.testing.expectEqual(-8468, s.record.sum.value);
+    try std.testing.expectEqual(15755, s.record.count.value);
     try std.testing.expectEqual(0, rem.len);
 }
 
