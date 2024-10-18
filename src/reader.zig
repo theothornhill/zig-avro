@@ -4,6 +4,7 @@ const string = @import("string.zig");
 
 pub const ReadError = error{
     UninitializedOrSpentIterator,
+    UnionIdOutOfBounds,
 };
 
 pub fn Number(comptime T: type) type {
@@ -21,6 +22,59 @@ pub const String = struct {
         return try string.read(&self.value, buf);
     }
 };
+
+pub fn Union(comptime T: type) type {
+    return struct {
+        type: T,
+        pub fn consume(self: *@This(), buf: []const u8) ![]const u8 {
+            var typeId: u32 = undefined;
+            var rem = buf;
+            rem = try long.read(u32, &typeId, buf);
+            inline for (std.meta.fields(T), 0..) |field, id| {
+                if (typeId == id) {
+                    self.type = @unionInit(T, field.name, undefined);
+                    if (field.type == void)
+                        return rem;
+                    return try @field(self.type, field.name).consume(rem);
+                }
+            }
+            return ReadError.UnionIdOutOfBounds;
+        }
+    };
+}
+
+test "parse union" {
+    var e: Union(union(enum) {
+        number: Number(i32),
+        string: String,
+        none,
+    }) = undefined;
+    const buf = &[_]u8{
+        1 << 1, // enum 1: string
+        1 << 1, // string length 1
+        '!',
+        // ---- next value in buffer:
+        0, // enum 0: number
+        3 << 1, // i32: 3
+    };
+    var rem: []const u8 = buf;
+    rem = try e.consume(rem);
+    try std.testing.expectEqual(2, rem.len);
+    try std.testing.expectEqualStrings("!", e.type.string.value);
+    rem = try e.consume(rem);
+    try std.testing.expectEqual(0, rem.len);
+    try std.testing.expectEqual(3, e.type.number.value);
+}
+
+test "parse union with invalid enum" {
+    var e: Union(union(enum) {
+        none,
+    }) = undefined;
+    const buf = &[_]u8{
+        1 << 1, // enum 1: invalid
+    };
+    try std.testing.expectError(ReadError.UnionIdOutOfBounds, e.consume(buf));
+}
 
 pub fn Array(comptime T: type) type {
     return struct {
