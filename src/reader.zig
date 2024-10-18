@@ -23,6 +23,46 @@ pub const String = struct {
     }
 };
 
+pub fn Record(comptime T: type) type {
+    return struct {
+        fields: T = undefined,
+        pub fn consume(self: *@This(), buf: []const u8) ![]const u8 {
+            var rem = buf;
+            inline for (
+                std.meta.fields(T),
+            ) |field| {
+                rem = try @field(self.fields, field.name).consume(rem);
+            }
+            return rem;
+        }
+    };
+}
+
+test "parse record from avro" {
+    var s: Record(struct {
+        title: String,
+        count: Number(i32),
+        sum: Number(i64),
+    }) = undefined;
+    const buf = &[_]u8{
+        3 << 1, // title(len 3)
+        'H',
+        'A',
+        'Y',
+        0b10010110, // count: 15755
+        0b11110110, // |
+        0b00000001, // |
+        0b10100111, // sum: -8468
+        0b10000100, // |
+        0b00000001, // |
+    };
+    const rem = try s.consume(buf);
+    try std.testing.expectEqualStrings("HAY", s.fields.title.value);
+    try std.testing.expectEqual(-8468, s.fields.sum.value);
+    try std.testing.expectEqual(15755, s.fields.count.value);
+    try std.testing.expectEqual(0, rem.len);
+}
+
 pub fn Union(comptime T: type) type {
     return struct {
         type: T,
