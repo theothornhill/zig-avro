@@ -7,10 +7,10 @@ pub const ReadError = error{
     UnionIdOutOfBounds,
 };
 
-pub fn Number(comptime T: type) type {
+pub fn Integer(comptime T: type) type {
     return struct {
         value: T = 0,
-        pub fn consume(self: *Number(T), buf: []const u8) ![]const u8 {
+        pub fn consume(self: *Integer(T), buf: []const u8) ![]const u8 {
             return try long.read(T, &self.value, buf);
         }
     };
@@ -41,8 +41,8 @@ pub fn Record(comptime T: type) type {
 test "parse record from avro" {
     var s: Record(struct {
         title: String,
-        count: Number(i32),
-        sum: Number(i64),
+        count: Integer(i32),
+        sum: Integer(i64),
     }) = undefined;
     const buf = &[_]u8{
         3 << 1, // title(len 3)
@@ -85,7 +85,7 @@ pub fn Union(comptime T: type) type {
 
 test "parse union" {
     var e: Union(union(enum) {
-        number: Number(i32),
+        number: Integer(i32),
         string: String,
         none,
     }) = undefined;
@@ -177,7 +177,7 @@ pub fn Array(comptime T: type) type {
 }
 
 test "array of 1" {
-    var a = Array(Number(i64)){};
+    var a = Array(Integer(i64)){};
     const buf = &[_]u8{
         1 << 1, // array block length 1
         2 << 1, // number 2
@@ -253,7 +253,7 @@ test "array with marked-length blocks" {
 }
 
 test "array of 0" {
-    var a = Array(Number(i64)){};
+    var a = Array(Integer(i64)){};
     const buf = &[_]u8{
         0, // array end
     };
@@ -263,7 +263,7 @@ test "array of 0" {
 }
 
 test "incorrect usage" {
-    var a = Array(Number(i32)){};
+    var a = Array(Integer(i32)){};
     const buf = &[_]u8{
         0, // array end
     };
@@ -280,7 +280,7 @@ test "incorrect usage" {
 // |3|4|
 // +-+-+
 test "2d array" {
-    var a = Array(Array(Number(i32))){};
+    var a = Array(Array(Integer(i32))){};
     const buf = &[_]u8{
         2 << 1, // 2 rows
         2 << 1, // 1st row: 2 columns
