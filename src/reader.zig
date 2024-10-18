@@ -244,6 +244,7 @@ pub fn Array(comptime T: type) type {
         pub fn consume(self: *Array(T), buf: []const u8) ![]const u8 {
             self.len = 0;
             self.restBuf = buf;
+            self.currentBlockLen = 0;
             var blockItems: i64 = 0;
             var blockBytesLength: usize = 0;
             var rem: []const u8 = buf;
@@ -401,4 +402,39 @@ test "2d array" {
     try std.testing.expectEqual(4, cell.value);
     try std.testing.expectEqual(null, row2.next());
     try std.testing.expectEqual(null, a.next());
+}
+
+fn Map(comptime K: type, comptime V: type) type {
+    const Entry = struct {
+        key: K = undefined,
+        value: V = undefined,
+        pub fn consume(self: *@This(), buf: []const u8) ![]const u8 {
+            const rem = try self.key.consume(buf);
+            return try self.value.consume(rem);
+        }
+    };
+    return Array(Entry);
+}
+
+test "map of 2" {
+    var m: Map(Integer(i32), String) = undefined;
+    const buf = &[_]u8{
+        2 << 1, // array block length 2
+        4 << 1, // number 4
+        1 << 1, // string(len 1)
+        'A',
+        5 << 1, // number 5
+        2 << 1, // string(len 2)
+        'B',
+        'C',
+        0, // array end
+    };
+    _ = try m.consume(buf);
+    try std.testing.expectEqual(2, m.len);
+    var i = (try m.next()).?;
+    try std.testing.expectEqual(4, i.key.value);
+    try std.testing.expectEqualStrings("A", i.value.value);
+    i = (try m.next()).?;
+    try std.testing.expectEqual(5, i.key.value);
+    try std.testing.expectEqualStrings("BC", i.value.value);
 }
