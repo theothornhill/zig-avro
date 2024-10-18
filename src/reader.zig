@@ -5,6 +5,7 @@ const string = @import("string.zig");
 pub const ReadError = error{
     UninitializedOrSpentIterator,
     UnionIdOutOfBounds,
+    UnexpectedEndOfBuffer,
 };
 
 pub fn Integer(comptime T: type) type {
@@ -59,6 +60,35 @@ test "parse enum from avro" {
     rem = try e.consume(rem);
     try std.testing.expectEqual(.zig, e.value);
     try std.testing.expectEqual(0, rem.len);
+}
+
+pub fn Fixed(length: usize) type {
+    return struct {
+        value: []const u8 = undefined,
+        pub fn consume(self: *@This(), buf: []const u8) ![]const u8 {
+            if (buf.len < length)
+                return ReadError.UnexpectedEndOfBuffer;
+            self.value = buf[0..length];
+            return buf[length..];
+        }
+    };
+}
+
+test "parse fixed from avro" {
+    var e: Fixed(12) = undefined;
+    _ = try e.consume("hello my good friend");
+    try std.testing.expectEqualStrings("hello my goo", e.value);
+}
+
+test "parse fixed fail" {
+    var e: Fixed(12) = undefined;
+    try std.testing.expectError(ReadError.UnexpectedEndOfBuffer, e.consume("hello you"));
+}
+
+test "parse fixed 0 lol" {
+    var e: Fixed(0) = undefined;
+    const rem = try e.consume("untouched");
+    try std.testing.expectEqualStrings("untouched", rem);
 }
 
 pub fn Record(comptime T: type) type {
