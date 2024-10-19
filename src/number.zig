@@ -58,7 +58,7 @@ pub fn writeDouble(value: f64, buf: []u8) !void {
     return writeFloatingPointNumber(f64, value, buf);
 }
 
-fn readNumber(comptime T: type, dst: *T, buf: []const u8) ![]const u8 {
+inline fn readNumber(comptime T: type, dst: *T, buf: []const u8) ![]const u8 {
     const U: type = switch (T) {
         i32 => u32,
         i64 => u64,
@@ -75,7 +75,7 @@ fn readNumber(comptime T: type, dst: *T, buf: []const u8) ![]const u8 {
     return buf[try stream.getPos()..];
 }
 
-fn writeNumber(comptime T: type, value: T, buf: []u8) !void {
+inline fn writeNumber(comptime T: type, value: T, buf: []u8) !void {
     const U: type = switch (T) {
         i32 => u32,
         i64 => u64,
@@ -113,7 +113,7 @@ pub const WriteFloatingPointError = error{
     Overflow,
 };
 
-fn readFloatingPointNumber(comptime T: type, dst: *T, buf: []const u8) ![]const u8 {
+inline fn readFloatingPointNumber(comptime T: type, dst: *T, buf: []const u8) ![]const u8 {
     const U: type = switch (T) {
         f32 => u32,
         f64 => u64,
@@ -130,7 +130,7 @@ fn readFloatingPointNumber(comptime T: type, dst: *T, buf: []const u8) ![]const 
     return buf[@sizeOf(U)..];
 }
 
-fn writeFloatingPointNumber(comptime T: type, value: T, buf: []u8) !void {
+inline fn writeFloatingPointNumber(comptime T: type, value: T, buf: []u8) !void {
     const U: type = switch (T) {
         f32 => u32,
         f64 => u64,
