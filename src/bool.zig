@@ -5,16 +5,16 @@ pub const ReadBoolError = error{
     InvalidEOF,
 };
 
-pub fn read(dst: *bool, buf: []const u8) ReadBoolError![]const u8 {
+pub fn read(dst: *bool, buf: []const u8) ![]const u8 {
     if (buf.len < 1) {
-        return .InvalidEOF;
+        return ReadBoolError.InvalidEOF;
     }
     var stream = std.io.fixedBufferStream(buf);
     const num = try stream.reader().readByte();
     dst.* = switch (num) {
         0 => false,
         1 => true,
-        else => return .InvalidBool,
+        else => return ReadBoolError.InvalidBool,
     };
 
     return buf[try stream.getPos()..];

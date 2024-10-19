@@ -38,8 +38,8 @@ pub const Integer = struct {
 };
 
 pub const Long = struct {
-    v: i32 = 0,
-    pub fn consume(self: *Integer, buf: []const u8) ![]const u8 {
+    v: i64 = 0,
+    pub fn consume(self: *Long, buf: []const u8) ![]const u8 {
         return try number.readLong(&self.v, buf);
     }
 };
@@ -463,7 +463,7 @@ test "2d array" {
     try std.testing.expectEqual(null, a.next());
 }
 
-fn Map(comptime K: type, comptime V: type) type {
+pub fn Map(comptime K: type, comptime V: type) type {
     const Entry = struct {
         key: K = undefined,
         value: V = undefined,

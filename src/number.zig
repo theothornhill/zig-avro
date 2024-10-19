@@ -55,7 +55,6 @@ inline fn readNumber(comptime T: type, dst: *T, buf: []const u8) ![]const u8 {
     var stream = std.io.fixedBufferStream(buf);
     const num = try leb.readUleb128(U, stream.reader());
     dst.* = @as(T, @bitCast(zigZagDecode(U, num)));
-
     return buf[try stream.getPos()..];
 }
 
