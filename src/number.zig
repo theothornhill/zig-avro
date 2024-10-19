@@ -10,32 +10,16 @@ pub const WriteLongError = error{
     Overflow,
 };
 
-pub fn readUint(dst: *u32, buf: []const u8) ![]const u8 {
-    return readNumber(u32, dst, buf);
-}
-
 pub fn readInt(dst: *i32, buf: []const u8) ![]const u8 {
     return readNumber(i32, dst, buf);
-}
-
-pub fn readUlong(dst: *u64, buf: []const u8) ![]const u8 {
-    return readNumber(u64, dst, buf);
 }
 
 pub fn readLong(dst: *i64, buf: []const u8) ![]const u8 {
     return readNumber(i64, dst, buf);
 }
 
-pub fn writeUint(value: u32, buf: []u8) !void {
-    return writeNumber(u32, value, buf);
-}
-
 pub fn writeInt(value: i32, buf: []u8) !void {
     return writeNumber(i32, value, buf);
-}
-
-pub fn writeUlong(value: u64, buf: []u8) !void {
-    return writeNumber(u64, value, buf);
 }
 
 pub fn writeLong(value: i64, buf: []u8) !void {
@@ -207,9 +191,9 @@ test "zig zag fuzz" {
 
 test "read int and long" {
     var test_i32: i32 = 123;
-    var test_u64: u64 = 123;
+    var test_i64: i64 = 123;
 
-    try std.testing.expectError(error.EndOfStream, readUlong(&test_u64, &[_]u8{
+    try std.testing.expectError(error.EndOfStream, readLong(&test_i64, &[_]u8{
         0b10010110,
         0b10010110,
         0b10010110,
@@ -224,20 +208,20 @@ test "read int and long" {
     try std.testing.expectEqual(rem_i32.len, 1);
     try std.testing.expectEqual(75, test_i32);
 
-    const rem_u64 = try readUlong(&test_u64, &[_]u8{
+    const rem_u64 = try readLong(&test_i64, &[_]u8{
         0b10010110,
         0b1,
         0b1,
     });
     try std.testing.expectEqual(rem_u64.len, 1);
-    try std.testing.expectEqual(75, test_u64);
+    try std.testing.expectEqual(75, test_i64);
 }
 
 test "write int and long" {
     const res = &[_]u8{ 0xAC, 0x02 };
 
     var buf: [2]u8 = undefined;
-    try writeUint(150, &buf);
+    try writeInt(150, &buf);
     try std.testing.expectEqualSlices(u8, res, &buf);
 
     const negativeTwo = &[_]u8{
@@ -245,14 +229,14 @@ test "write int and long" {
     };
 
     var negBuf: [1]u8 = undefined;
-    try writeUlong(0xfffffffffffffffe, &negBuf);
+    try writeLong(-2, &negBuf);
     try std.testing.expectEqualSlices(u8, negativeTwo, &negBuf);
 
     var negBuf2: [0]u8 = undefined;
-    try std.testing.expectError(error.NoSpaceLeft, writeUlong(0xfffffffffffffffe, &negBuf2));
+    try std.testing.expectError(error.NoSpaceLeft, writeLong(-2, &negBuf2));
 
     var buf3: [0]u8 = undefined;
-    try std.testing.expectError(error.NoSpaceLeft, writeUlong(1, &buf3));
+    try std.testing.expectError(error.NoSpaceLeft, writeLong(1, &buf3));
 }
 
 test zigZagEncode {
