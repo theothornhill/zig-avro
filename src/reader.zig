@@ -51,6 +51,8 @@ pub const String = struct {
     }
 };
 
+pub const Bytes = String;
+
 pub fn Enum(comptime T: type) type {
     return struct {
         v: T = undefined,
