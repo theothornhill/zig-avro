@@ -1,6 +1,5 @@
 const std = @import("std");
-const long = @import("long.zig");
-const float = @import("float.zig");
+const number = @import("number.zig");
 const string = @import("string.zig");
 
 pub const ReadError = error{
@@ -9,32 +8,33 @@ pub const ReadError = error{
     UnexpectedEndOfBuffer,
 };
 
-pub fn Float() type {
-    return struct {
-        v: f32 = 0.0,
-        pub fn consume(self: *Float(), buf: []const u8) ![]const u8 {
-            return try float.read(f32, &self.v, buf);
-        }
-    };
-}
+pub const Float = struct {
+    v: f32 = 0.0,
+    pub fn consume(self: *Float, buf: []const u8) ![]const u8 {
+        return try number.readFloat(&self.v, buf);
+    }
+};
 
-pub fn Double() type {
-    return struct {
-        v: f64 = 0.0,
-        pub fn consume(self: *Double(), buf: []const u8) ![]const u8 {
-            return try float.read(f64, &self.v, buf);
-        }
-    };
-}
+pub const Double = struct {
+    v: f64 = 0.0,
+    pub fn consume(self: *Double, buf: []const u8) ![]const u8 {
+        return try number.readDouble(&self.v, buf);
+    }
+};
 
-pub fn Integer(comptime T: type) type {
-    return struct {
-        v: T = 0,
-        pub fn consume(self: *Integer(T), buf: []const u8) ![]const u8 {
-            return try long.read(T, &self.v, buf);
-        }
-    };
-}
+pub const Integer = struct {
+    v: i32 = 0,
+    pub fn consume(self: *Integer, buf: []const u8) ![]const u8 {
+        return try number.readInt(&self.v, buf);
+    }
+};
+
+pub const Long = struct {
+    v: i32 = 0,
+    pub fn consume(self: *Integer, buf: []const u8) ![]const u8 {
+        return try number.readLong(&self.v, buf);
+    }
+};
 
 pub const String = struct {
     v: []const u8 = &.{},
@@ -48,8 +48,8 @@ pub fn Enum(comptime T: type) type {
         v: T = undefined,
         pub fn consume(self: *@This(), buf: []const u8) ![]const u8 {
             var rem = buf;
-            var enumId: u32 = undefined;
-            rem = try long.read(u32, &enumId, rem);
+            var enumId: i32 = undefined;
+            rem = try number.readInt(&enumId, rem);
             self.v = @enumFromInt(enumId);
             return rem;
         }
@@ -128,8 +128,8 @@ pub fn Record(comptime T: type) type {
 test "parse record from avro" {
     var s: Record(struct {
         title: String,
-        count: Integer(i32),
-        sum: Integer(i64),
+        count: Integer,
+        sum: Integer,
     }) = undefined;
     const buf = &[_]u8{
         3 << 1, // title(len 3)
@@ -154,9 +154,9 @@ pub fn Union(comptime T: type) type {
     return struct {
         type: T,
         pub fn consume(self: *@This(), buf: []const u8) ![]const u8 {
-            var typeId: u32 = undefined;
+            var typeId: i32 = undefined;
             var rem = buf;
-            rem = try long.read(u32, &typeId, buf);
+            rem = try number.readInt(&typeId, buf);
             inline for (std.meta.fields(T), 0..) |field, id| {
                 if (typeId == id) {
                     self.type = @unionInit(T, field.name, undefined);
@@ -172,7 +172,7 @@ pub fn Union(comptime T: type) type {
 
 test "parse union" {
     var e: Union(union(enum) {
-        number: Integer(i32),
+        number: Integer,
         string: String,
         none,
     }) = undefined;
@@ -229,7 +229,7 @@ pub fn Array(comptime T: type) type {
     return struct {
         item: T = .{},
         len: usize = 0,
-        currentBlockLen: usize = 0,
+        currentBlockLen: i64 = 0,
         restBuf: []const u8 = &.{},
         valid: bool = false,
 
@@ -241,7 +241,7 @@ pub fn Array(comptime T: type) type {
             if (!self.valid)
                 return ReadError.UninitializedOrSpentIterator;
             if (self.currentBlockLen == 0)
-                self.restBuf = try long.read(usize, &self.currentBlockLen, self.restBuf);
+                self.restBuf = try number.readLong(&self.currentBlockLen, self.restBuf);
             if (self.currentBlockLen == 0) {
                 self.valid = false;
                 return null;
@@ -265,17 +265,17 @@ pub fn Array(comptime T: type) type {
             self.restBuf = buf;
             self.currentBlockLen = 0;
             var blockItems: i64 = 0;
-            var blockBytesLength: usize = 0;
+            var blockBytesLength: i64 = 0;
             var rem: []const u8 = buf;
             while (true) {
-                rem = try long.read(i64, &blockItems, rem);
+                rem = try number.readLong(&blockItems, rem);
                 if (blockItems == 0) {
                     self.valid = true;
                     return rem;
                 } else if (blockItems < 0) {
                     blockItems = -blockItems;
-                    rem = try long.read(usize, &blockBytesLength, rem);
-                    rem = rem[blockBytesLength..];
+                    rem = try number.readLong(&blockBytesLength, rem);
+                    rem = rem[@bitCast(blockBytesLength)..];
                 } else {
                     for (0..@bitCast(blockItems)) |_|
                         rem = try self.item.consume(rem);
@@ -287,7 +287,7 @@ pub fn Array(comptime T: type) type {
 }
 
 test "array of double" {
-    var a = Array(Double()){};
+    var a = Array(Double){};
     const buf = &[_]u8{
         1 << 1, // array block length 1
         0x40, 0x09, 0x21, 0xFB, 0x54, 0x44, 0x2D, 0x18, // 3.141592653589793115997963468544185161590576171875
@@ -303,7 +303,7 @@ test "array of double" {
 }
 
 test "array of float" {
-    var a = Array(Float()){};
+    var a = Array(Float){};
     const buf = &[_]u8{
         1 << 1, // array block length 1
         0x40, 0x49, 0x0F, 0xD8, // 3.141592
@@ -319,7 +319,7 @@ test "array of float" {
 }
 
 test "array of 1" {
-    var a = Array(Integer(i64)){};
+    var a = Array(Integer){};
     const buf = &[_]u8{
         1 << 1, // array block length 1
         2 << 1, // number 2
@@ -395,7 +395,7 @@ test "array with marked-length blocks" {
 }
 
 test "array of 0" {
-    var a = Array(Integer(i64)){};
+    var a = Array(Integer){};
     const buf = &[_]u8{
         0, // array end
     };
@@ -405,7 +405,7 @@ test "array of 0" {
 }
 
 test "incorrect usage" {
-    var a = Array(Integer(i32)){};
+    var a = Array(Integer){};
     const buf = &[_]u8{
         0, // array end
     };
@@ -422,7 +422,7 @@ test "incorrect usage" {
 // |3|4|
 // +-+-+
 test "2d array" {
-    var a = Array(Array(Integer(i32))){};
+    var a = Array(Array(Integer)){};
     const buf = &[_]u8{
         2 << 1, // 2 rows
         2 << 1, // 1st row: 2 columns
@@ -468,7 +468,7 @@ fn Map(comptime K: type, comptime V: type) type {
 }
 
 test "map of 2" {
-    var m: Map(Integer(i32), String) = undefined;
+    var m: Map(Integer, String) = undefined;
     const buf = &[_]u8{
         2 << 1, // array block length 2
         4 << 1, // number 4

@@ -1,12 +1,12 @@
 const std = @import("std");
-const long = @import("long.zig");
+const number = @import("number.zig");
 
 pub fn main() !void {
-    var num: u64 = undefined;
-    _ = try long.read(u64, &num, &[_]u8{ 0b10010110, 0b1, 0b1 });
+    var num: i64 = undefined;
+    _ = try number.readLong(&num, &[_]u8{ 0b10010110, 0b1, 0b1 });
 
     var buf: [2]u8 = undefined;
-    try long.write(u64, num, &buf);
+    try number.writeLong(num, &buf);
 
     const str: []const u8 =
         \\long:
