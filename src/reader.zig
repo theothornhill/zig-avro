@@ -1,5 +1,6 @@
 const std = @import("std");
 const long = @import("long.zig");
+const float = @import("float.zig");
 const string = @import("string.zig");
 
 pub const ReadError = error{
@@ -7,6 +8,24 @@ pub const ReadError = error{
     UnionIdOutOfBounds,
     UnexpectedEndOfBuffer,
 };
+
+pub fn Float() type {
+    return struct {
+        v: f32 = 0.0,
+        pub fn consume(self: *Float(), buf: []const u8) ![]const u8 {
+            return try float.read(f32, &self.v, buf);
+        }
+    };
+}
+
+pub fn Double() type {
+    return struct {
+        v: f64 = 0.0,
+        pub fn consume(self: *Double(), buf: []const u8) ![]const u8 {
+            return try float.read(f64, &self.v, buf);
+        }
+    };
+}
 
 pub fn Integer(comptime T: type) type {
     return struct {
@@ -265,6 +284,38 @@ pub fn Array(comptime T: type) type {
             }
         }
     };
+}
+
+test "array of double" {
+    var a = Array(Double()){};
+    const buf = &[_]u8{
+        1 << 1, // array block length 1
+        0x40, 0x09, 0x21, 0xFB, 0x54, 0x44, 0x2D, 0x18, // 3.141592653589793115997963468544185161590576171875
+        0, // array end
+        '?', // stuff beyond the array
+    };
+    const rem = try a.consume(buf);
+    try std.testing.expectEqual(1, rem.len);
+    try std.testing.expectEqual(1, a.len);
+    const i = (try a.next()).?;
+    try std.testing.expectEqual(3.141592653589793115997963468544185161590576171875, i.v);
+    try std.testing.expectEqual(null, a.next());
+}
+
+test "array of float" {
+    var a = Array(Float()){};
+    const buf = &[_]u8{
+        1 << 1, // array block length 1
+        0x40, 0x49, 0x0F, 0xD8, // 3.141592
+        0, // array end
+        '?', // stuff beyond the array
+    };
+    const rem = try a.consume(buf);
+    try std.testing.expectEqual(1, rem.len);
+    try std.testing.expectEqual(1, a.len);
+    const i = (try a.next()).?;
+    try std.testing.expectEqual(3.141592, i.v);
+    try std.testing.expectEqual(null, a.next());
 }
 
 test "array of 1" {
