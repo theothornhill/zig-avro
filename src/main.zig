@@ -32,7 +32,7 @@ pub const Incident = struct {
     connectorId: reader.Union(union(enum) { none, string: reader.String }),
     tsAdminIn: reader.Union(union(enum) { none, long: reader.Long }),
     tsAdminOut: reader.Union(union(enum) { none, long: reader.Long }),
-    properties: reader.Map(reader.String, reader.String),
+    properties: reader.Map(reader.String),
 };
 
 test "incident" {

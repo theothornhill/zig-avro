@@ -252,6 +252,11 @@ pub fn Array(comptime T: type) type {
                 return ReadError.UninitializedOrSpentIterator;
             if (self.currentBlockLen == 0)
                 self.restBuf = try number.readLong(&self.currentBlockLen, self.restBuf);
+            if (self.currentBlockLen < 0) {
+                var blockByteCount: i64 = undefined;
+                self.currentBlockLen = -self.currentBlockLen;
+                self.restBuf = try number.readLong(&blockByteCount, self.restBuf);
+            }
             if (self.currentBlockLen == 0) {
                 self.valid = false;
                 return null;
@@ -404,6 +409,23 @@ test "array with marked-length blocks" {
     try std.testing.expectEqual(16, a.len);
 }
 
+test "array reading marked-length blocks" {
+    var a = Array(String){};
+    const buf = &[_]u8{
+        (1 << 1) - 1, // block#1 size -1
+        11 << 1, // block#1 byte length 11
+        10 << 1, // string len 10
+    } ++ "VALID DATA" ++ &[_]u8{
+        0, // array end
+    };
+    const rem = try a.consume(buf);
+    try std.testing.expectEqual(0, rem.len);
+    try std.testing.expectEqual(1, a.len);
+    const i = (try a.next()).?;
+    try std.testing.expectEqualStrings("VALID DATA", i.v);
+    try std.testing.expectEqual(null, a.next());
+}
+
 test "array of 0" {
     var a = Array(Integer){};
     const buf = &[_]u8{
@@ -465,9 +487,9 @@ test "2d array" {
     try std.testing.expectEqual(null, a.next());
 }
 
-pub fn Map(comptime K: type, comptime V: type) type {
+pub fn Map(comptime V: type) type {
     const Entry = struct {
-        key: K = undefined,
+        key: String = undefined,
         value: V = undefined,
         pub fn consume(self: *@This(), buf: []const u8) ![]const u8 {
             const rem = try self.key.consume(buf);
@@ -478,24 +500,24 @@ pub fn Map(comptime K: type, comptime V: type) type {
 }
 
 test "map of 2" {
-    var m: Map(Integer, String) = undefined;
+    var m: Map(Integer) = undefined;
     const buf = &[_]u8{
         2 << 1, // array block length 2
-        4 << 1, // number 4
         1 << 1, // string(len 1)
         'A',
-        5 << 1, // number 5
+        4 << 1, // number 4
         2 << 1, // string(len 2)
         'B',
         'C',
+        5 << 1, // number 5
         0, // array end
     };
     _ = try m.consume(buf);
     try std.testing.expectEqual(2, m.len);
     var i = (try m.next()).?;
-    try std.testing.expectEqual(4, i.key.v);
-    try std.testing.expectEqualStrings("A", i.value.v);
+    try std.testing.expectEqual(4, i.value.v);
+    try std.testing.expectEqualStrings("A", i.key.v);
     i = (try m.next()).?;
-    try std.testing.expectEqual(5, i.key.v);
-    try std.testing.expectEqualStrings("BC", i.value.v);
+    try std.testing.expectEqual(5, i.value.v);
+    try std.testing.expectEqualStrings("BC", i.key.v);
 }
