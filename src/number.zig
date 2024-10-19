@@ -42,6 +42,48 @@ pub fn writeDouble(value: f64, buf: []u8) !void {
     return writeFloatingPointNumber(f64, value, buf);
 }
 
+pub fn Uleb128(comptime T: type) type {
+    return struct {
+        bytes_read: usize,
+        val: T,
+    };
+}
+
+/// We should rather try to create a io.Reader that won't copy, but for now,
+/// this vendored function doubles the read speed of our parser.
+pub fn readUleb128(comptime T: type, buf: []const u8) !Uleb128(T) {
+    const ShiftT = std.math.Log2Int(T);
+
+    const max_group = (@typeInfo(T).int.bits + 6) / 7;
+
+    var value: T = 0;
+    var group: ShiftT = 0;
+
+    var i: usize = 0;
+    while (group < max_group) : ({
+        group += 1;
+        i += 1;
+    }) {
+        if (i >= buf.len) {
+            return error.EndOfStream;
+        }
+        const byte = buf[i];
+
+        const ov = @shlWithOverflow(@as(T, byte & 0x7f), group * 7);
+        if (ov[1] != 0) return error.Overflow;
+
+        value |= ov[0];
+        if (byte & 0x80 == 0) break;
+    } else {
+        return error.Overflow;
+    }
+
+    return .{
+        .bytes_read = i + 1,
+        .val = @as(T, @truncate(value)),
+    };
+}
+
 inline fn readNumber(comptime T: type, dst: *T, buf: []const u8) ![]const u8 {
     const U: type = switch (T) {
         i32 => u32,
@@ -52,10 +94,9 @@ inline fn readNumber(comptime T: type, dst: *T, buf: []const u8) ![]const u8 {
         isize => usize,
         else => @compileError("supported types: i32, u32, i64, u64, usize, isize. Got " ++ @typeName(T)),
     };
-    var stream = std.io.fixedBufferStream(buf);
-    const num = try leb.readUleb128(U, stream.reader());
-    dst.* = @as(T, @bitCast(zigZagDecode(U, num)));
-    return buf[try stream.getPos()..];
+    const num = try readUleb128(U, buf);
+    dst.* = @as(T, @bitCast(zigZagDecode(U, num.val)));
+    return buf[num.bytes_read..];
 }
 
 inline fn writeNumber(comptime T: type, value: T, buf: []u8) !void {
