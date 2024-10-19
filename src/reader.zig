@@ -1,11 +1,19 @@
 const std = @import("std");
 const number = @import("number.zig");
+const boolean = @import("bool.zig");
 const string = @import("string.zig");
 
 pub const ReadError = error{
     UninitializedOrSpentIterator,
     UnionIdOutOfBounds,
     UnexpectedEndOfBuffer,
+};
+
+pub const Bool = struct {
+    v: bool = false,
+    pub fn consume(self: *Bool, buf: []const u8) ![]const u8 {
+        return try boolean.read(&self.v, buf);
+    }
 };
 
 pub const Float = struct {
