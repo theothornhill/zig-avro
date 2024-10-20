@@ -5,23 +5,24 @@ const string = @import("string.zig");
 
 pub fn consumeRecord(comptime R: type, r: *R, buf: []const u8) ![]const u8 {
     var rem = buf;
-    inline for (
-        @typeInfo(R).@"struct".fields,
-    ) |field| {
-        switch (field.type) {
-            bool => rem = try boolean.read(&@field(r, field.name), rem),
-            []const u8 => rem = try string.read(&@field(r, field.name), rem),
-            else => switch (@typeInfo(field.type)) {
-                .@"struct" => {
-                    rem = try consumeRecord(field.type, &@field(r, field.name), rem);
-                },
-                else => {
-                    @compileError("unsupported field type " ++ @typeName(field.type));
-                },
-            },
-        }
-    }
+    inline for (@typeInfo(R).@"struct".fields) |field|
+        rem = try consume(field.type, &@field(r, field.name), rem);
     return rem;
+}
+
+pub fn consume(comptime T: type, v: *T, buf: []const u8) ![]const u8 {
+    switch (T) {
+        bool => return try boolean.read(v, buf),
+        []const u8 => return try string.read(v, buf),
+        else => switch (@typeInfo(T)) {
+            .@"struct" => {
+                return try consumeRecord(T, v, buf);
+            },
+            else => {
+                @compileError("unsupported field type " ++ @typeName(T));
+            },
+        },
+    }
 }
 
 test "hm" {
@@ -42,7 +43,7 @@ test "hm" {
         },
     };
     var r: Record = undefined;
-    const rem = try consumeRecord(Record, &r, buf);
+    const rem = try consume(Record, &r, buf);
     try std.testing.expectEqual(true, r.valid);
     try std.testing.expectEqualStrings("HI", r.message);
     try std.testing.expectEqual(true, r.flags.logged);
