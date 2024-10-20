@@ -11,14 +11,14 @@ pub fn consumeRecord(comptime R: type, r: *R, buf: []const u8) ![]const u8 {
 }
 
 pub fn consume(comptime T: type, v: *T, buf: []const u8) ![]const u8 {
-    switch (T) {
-        bool => return try boolean.read(v, buf),
-        []const u8 => return try string.read(v, buf),
+    return switch (T) {
+        bool => try boolean.read(v, buf),
+        []const u8 => try string.read(v, buf),
         else => switch (@typeInfo(T)) {
-            .@"struct" => return try consumeRecord(T, v, buf),
+            .@"struct" => try consumeRecord(T, v, buf),
             else => @compileError("unsupported field type " ++ @typeName(T)),
         },
-    }
+    };
 }
 
 test "hm" {
