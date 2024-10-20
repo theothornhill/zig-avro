@@ -521,3 +521,10 @@ test "map of 2" {
     try std.testing.expectEqual(5, i.value.v);
     try std.testing.expectEqualStrings("BC", i.key.v);
 }
+
+pub inline fn Nullable(comptime T: type) type {
+    return Union(union(enum) {
+        none,
+        val: T,
+    });
+}
