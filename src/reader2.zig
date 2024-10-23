@@ -19,6 +19,7 @@ pub fn consume(comptime T: type, v: *T, buf: []const u8) ![]const u8 {
                 return try v.consumeOwn(buf);
             return switch (@typeInfo(T)) {
                 .@"struct" => try consumeRecord(T, v, buf),
+                .@"union" => try consumeUnion(T, v, buf),
                 else => @compileError("unsupported field type " ++ @typeName(T)),
             };
         },
@@ -108,6 +109,21 @@ pub fn consumeRecord(comptime R: type, r: *R, buf: []const u8) ![]const u8 {
     return rem;
 }
 
+fn consumeUnion(comptime U: type, u: *U, buf: []const u8) ![]const u8 {
+    var typeId: i32 = undefined;
+    var rem = buf;
+    rem = try number.readInt(&typeId, buf);
+    inline for (std.meta.fields(U), 0..) |field, id| {
+        if (typeId == id) {
+            u.* = @unionInit(U, field.name, undefined);
+            if (field.type == void)
+                return rem;
+            return try consume(field.type, &@field(u, field.name), rem);
+        }
+    }
+    return ReadError.UnionIdOutOfBounds;
+}
+
 test "consume record" {
     const buf = &[_]u8{
         1, // valid: true
@@ -119,6 +135,8 @@ test "consume record" {
         1 << 1, // items array: len 1
         5 << 1, // items[0] = 5
         0, // end of array
+        0, // onion type: the i32 thing
+        2 << 1, // onion.number = 2
     };
     const Record = struct {
         valid: bool,
@@ -128,6 +146,10 @@ test "consume record" {
             terrible: bool,
         },
         items: Array(i32),
+        onion: union(enum) {
+            number: i32,
+            none,
+        },
     };
     var r: Record = undefined;
     const rem = try consume(Record, &r, buf);
@@ -136,5 +158,6 @@ test "consume record" {
     try std.testing.expectEqual(true, r.flags.logged);
     try std.testing.expectEqual(false, r.flags.terrible);
     try std.testing.expectEqual(5, (try r.items.next()).?.*);
+    try std.testing.expectEqual(2, r.onion.number);
     try std.testing.expectEqual(0, rem.len);
 }
