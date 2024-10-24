@@ -2,248 +2,80 @@ const std = @import("std");
 const number = @import("number.zig");
 const boolean = @import("bool.zig");
 const string = @import("string.zig");
+const ReadError = @import("errors.zig").ReadError;
 
-pub const ReadError = error{
-    UninitializedOrSpentIterator,
-    UnionIdOutOfBounds,
-    UnexpectedEndOfBuffer,
-};
-
-pub const Bool = struct {
-    v: bool = false,
-    pub fn consume(self: *Bool, buf: []const u8) ![]const u8 {
-        return try boolean.read(&self.v, buf);
-    }
-};
-
-pub const Float = struct {
-    v: f32 = 0.0,
-    pub fn consume(self: *Float, buf: []const u8) ![]const u8 {
-        return try number.readFloat(&self.v, buf);
-    }
-};
-
-pub const Double = struct {
-    v: f64 = 0.0,
-    pub fn consume(self: *Double, buf: []const u8) ![]const u8 {
-        return try number.readDouble(&self.v, buf);
-    }
-};
-
-pub const Integer = struct {
-    v: i32 = 0,
-    pub fn consume(self: *Integer, buf: []const u8) ![]const u8 {
-        return try number.readInt(&self.v, buf);
-    }
-};
-
-pub const Long = struct {
-    v: i64 = 0,
-    pub fn consume(self: *Long, buf: []const u8) ![]const u8 {
-        return try number.readLong(&self.v, buf);
-    }
-};
-
-pub const String = struct {
-    v: []const u8 = &.{},
-    pub fn consume(self: *String, buf: []const u8) ![]const u8 {
-        return try string.read(&self.v, buf);
-    }
-};
-
-pub const Bytes = String;
-
-pub fn Enum(comptime T: type) type {
-    return struct {
-        v: T = undefined,
-        pub fn consume(self: *@This(), buf: []const u8) ![]const u8 {
-            var rem = buf;
-            var enumId: i32 = undefined;
-            rem = try number.readInt(&enumId, rem);
-            self.v = @enumFromInt(enumId);
-            return rem;
-        }
-    };
-}
-
-test "parse enum from avro" {
-    var e: Enum(enum {
-        take,
-        off,
-        every,
-        zig,
-        move,
-    }) = undefined;
-    const buf = &[_]u8{
-        4 << 1, // move
-        3 << 1, // zig
-        4 << 1, // move
-        3 << 1, // zig
-    };
-    var rem = try e.consume(buf);
-    try std.testing.expectEqual(.move, e.v);
-    rem = try e.consume(rem);
-    try std.testing.expectEqual(.zig, e.v);
-    rem = try e.consume(rem);
-    try std.testing.expectEqual(.move, e.v);
-    rem = try e.consume(rem);
-    try std.testing.expectEqual(.zig, e.v);
-    try std.testing.expectEqual(0, rem.len);
-}
-
-pub fn Fixed(length: usize) type {
-    return struct {
-        v: []const u8 = undefined,
-        pub fn consume(self: *@This(), buf: []const u8) ![]const u8 {
-            if (buf.len < length)
-                return ReadError.UnexpectedEndOfBuffer;
-            self.v = buf[0..length];
-            return buf[length..];
-        }
-    };
-}
-
-test "parse fixed from avro" {
-    var e: Fixed(12) = undefined;
-    _ = try e.consume("hello my good friend");
-    try std.testing.expectEqualStrings("hello my goo", e.v);
-}
-
-test "parse fixed fail" {
-    var e: Fixed(12) = undefined;
-    try std.testing.expectError(ReadError.UnexpectedEndOfBuffer, e.consume("hello you"));
-}
-
-test "parse fixed 0 lol" {
-    var e: Fixed(0) = undefined;
-    const rem = try e.consume("untouched");
-    try std.testing.expectEqualStrings("untouched", rem);
-}
-
-pub fn Record(comptime T: type) type {
-    return struct {
-        record: T = undefined,
-        pub fn consume(self: *@This(), buf: []const u8) ![]const u8 {
-            var rem = buf;
-            inline for (
-                std.meta.fields(T),
-            ) |field| {
-                rem = try @field(self.record, field.name).consume(rem);
+pub fn read(comptime T: type, v: *T, buf: []const u8) ![]const u8 {
+    switch (T) {
+        bool => return try boolean.read(v, buf),
+        i32 => return try number.readInt(v, buf),
+        i64 => return try number.readLong(v, buf),
+        f32 => return try number.readFloat(v, buf),
+        f64 => return try number.readDouble(v, buf),
+        []const u8 => return try string.read(v, buf),
+        else => {
+            switch (@typeInfo(T)) {
+                .@"struct" => {
+                    if (@hasDecl(T, "readOwn"))
+                        return try v.readOwn(buf);
+                    return try readRecord(T, v, buf);
+                },
+                .@"enum" => return try readEnum(T, v, buf),
+                .@"union" => return try readUnion(T, v, buf),
+                .pointer => return try readFixed(v.*.len, v, buf),
+                else => {},
             }
-            return rem;
+            @compileError("unsupported field type " ++ @typeName(T));
+        },
+    }
+}
+
+fn readEnum(comptime E: type, e: *E, buf: []const u8) ![]const u8 {
+    var rem = buf;
+    var enumId: i32 = undefined;
+    rem = try number.readInt(&enumId, rem);
+    e.* = @enumFromInt(enumId);
+    return rem;
+}
+
+fn readFixed(len: comptime_int, tgt: **[len]u8, buf: []const u8) ![]const u8 {
+    if (buf.len < len)
+        return ReadError.UnexpectedEndOfBuffer;
+    const fixedStart: *u8 = @constCast(&buf[0]);
+    tgt.* = @ptrCast(fixedStart);
+    return buf[len..];
+}
+
+fn readRecord(comptime R: type, r: *R, buf: []const u8) ![]const u8 {
+    var rem = buf;
+    inline for (@typeInfo(R).@"struct".fields) |field|
+        rem = try read(field.type, &@field(r, field.name), rem);
+    return rem;
+}
+
+fn readUnion(comptime U: type, u: *U, buf: []const u8) ![]const u8 {
+    var typeId: i32 = undefined;
+    var rem = buf;
+    rem = try number.readInt(&typeId, buf);
+    inline for (std.meta.fields(U), 0..) |field, id| {
+        if (typeId == id) {
+            u.* = @unionInit(U, field.name, undefined);
+            if (field.type == void)
+                return rem;
+            return try read(field.type, &@field(u, field.name), rem);
         }
-    };
-}
-
-test "parse record from avro" {
-    var s: Record(struct {
-        title: String,
-        count: Integer,
-        sum: Integer,
-    }) = undefined;
-    const buf = &[_]u8{
-        3 << 1, // title(len 3)
-        'H',
-        'A',
-        'Y',
-        0b10010110, // count: 15755
-        0b11110110, // |
-        0b00000001, // |
-        0b10100111, // sum: -8468
-        0b10000100, // |
-        0b00000001, // |
-    };
-    const rem = try s.consume(buf);
-    try std.testing.expectEqualStrings("HAY", s.record.title.v);
-    try std.testing.expectEqual(-8468, s.record.sum.v);
-    try std.testing.expectEqual(15755, s.record.count.v);
-    try std.testing.expectEqual(0, rem.len);
-}
-
-pub fn Union(comptime T: type) type {
-    return struct {
-        type: T,
-        pub fn consume(self: *@This(), buf: []const u8) ![]const u8 {
-            var typeId: i32 = undefined;
-            var rem = buf;
-            rem = try number.readInt(&typeId, buf);
-            inline for (std.meta.fields(T), 0..) |field, id| {
-                if (typeId == id) {
-                    self.type = @unionInit(T, field.name, undefined);
-                    if (field.type == void)
-                        return rem;
-                    return try @field(self.type, field.name).consume(rem);
-                }
-            }
-            return ReadError.UnionIdOutOfBounds;
-        }
-    };
-}
-
-test "parse union" {
-    var e: Union(union(enum) {
-        number: Integer,
-        string: String,
-        none,
-    }) = undefined;
-    const buf = &[_]u8{
-        1 << 1, // enum 1: string
-        1 << 1, // string length 1
-        '!',
-        // ---- next value in buffer:
-        0, // enum 0: number
-        3 << 1, // i32: 3
-    };
-    var rem: []const u8 = buf;
-    rem = try e.consume(rem);
-    try std.testing.expectEqual(2, rem.len);
-    try std.testing.expectEqualStrings("!", e.type.string.v);
-    rem = try e.consume(rem);
-    try std.testing.expectEqual(0, rem.len);
-    try std.testing.expectEqual(3, e.type.number.v);
-}
-
-test "parse union with invalid enum" {
-    var e: Union(union(enum) {
-        none,
-    }) = undefined;
-    const buf = &[_]u8{
-        1 << 1, // enum 1: invalid
-    };
-    try std.testing.expectError(ReadError.UnionIdOutOfBounds, e.consume(buf));
-}
-
-test "union over two enums" {
-    var e: Union(union(enum) {
-        wordsA: Enum(enum { enjoy, your, time }),
-        wordsB: Enum(enum { make, a, coffee }),
-    }) = undefined;
-    const buf = &[_]u8{
-        1 << 1, // wordsB
-        0 << 1, // .make
-        0 << 1, // wordsA
-        1 << 1, // .your
-        0 << 1, // wordsA
-        2 << 1, // .time
-    };
-    var rem = try e.consume(buf);
-    try std.testing.expectEqual(.make, e.type.wordsB.v);
-    rem = try e.consume(rem);
-    try std.testing.expectEqual(.your, e.type.wordsA.v);
-    rem = try e.consume(rem);
-    try std.testing.expectEqual(.time, e.type.wordsA.v);
-    try std.testing.expectEqual(0, rem.len);
+    }
+    return ReadError.UnionIdOutOfBounds;
 }
 
 pub fn Array(comptime T: type) type {
     return struct {
-        item: T = .{},
+        item: T = undefined,
         len: usize = 0,
         currentBlockLen: i64 = 0,
         restBuf: []const u8 = &.{},
         valid: bool = false,
 
-        /// If there are remaining items in the array, consume the next and return it.
+        /// If there are remaining items in the array, read the next and return it.
         /// Returns null if there are no remaining items.
         ///
         /// This iterator can only be used once.
@@ -262,7 +94,7 @@ pub fn Array(comptime T: type) type {
                 return null;
             }
             self.currentBlockLen -= 1;
-            self.restBuf = try self.item.consume(self.restBuf);
+            self.restBuf = try read(T, &self.item, self.restBuf);
             return &self.item;
         }
         /// Prepares an iterator an returns buffer after end of array.
@@ -275,7 +107,7 @@ pub fn Array(comptime T: type) type {
         /// bytes allowing us to skip past it faster. This is signalled by having a negative
         /// `blockItems`, in which we should flip it to positive and read another varint
         /// describing the `blockBytesLength`.
-        pub fn consume(self: *Array(T), buf: []const u8) ![]const u8 {
+        pub fn readOwn(self: *Array(T), buf: []const u8) ![]const u8 {
             self.len = 0;
             self.restBuf = buf;
             self.currentBlockLen = 0;
@@ -293,7 +125,7 @@ pub fn Array(comptime T: type) type {
                     rem = rem[@bitCast(blockBytesLength)..];
                 } else {
                     for (0..@bitCast(blockItems)) |_|
-                        rem = try self.item.consume(rem);
+                        rem = try read(T, &self.item, rem);
                 }
                 self.len += @bitCast(blockItems);
             }
@@ -301,151 +133,26 @@ pub fn Array(comptime T: type) type {
     };
 }
 
-test "array of double" {
-    var a = Array(Double){};
-    const buf = &[_]u8{
-        1 << 1, // array block length 1
-        0x40, 0x09, 0x21, 0xFB, 0x54, 0x44, 0x2D, 0x18, // 3.141592653589793115997963468544185161590576171875
-        0, // array end
-        '?', // stuff beyond the array
+pub fn Map(comptime V: type) type {
+    const Entry = struct {
+        key: []const u8 = undefined,
+        value: V = undefined,
+        pub fn readOwn(self: *@This(), buf: []const u8) ![]const u8 {
+            const rem = try read([]const u8, &self.key, buf);
+            return try read(V, &self.value, rem);
+        }
     };
-    const rem = try a.consume(buf);
-    try std.testing.expectEqual(1, rem.len);
-    try std.testing.expectEqual(1, a.len);
-    const i = (try a.next()).?;
-    try std.testing.expectEqual(3.141592653589793115997963468544185161590576171875, i.v);
-    try std.testing.expectEqual(null, a.next());
+    return Array(Entry);
 }
 
-test "array of float" {
-    var a = Array(Float){};
+test "read array" {
     const buf = &[_]u8{
-        1 << 1, // array block length 1
-        0x40, 0x49, 0x0F, 0xD8, // 3.141592
-        0, // array end
-        '?', // stuff beyond the array
+        1 << 1,
+        0,
+        0,
     };
-    const rem = try a.consume(buf);
-    try std.testing.expectEqual(1, rem.len);
-    try std.testing.expectEqual(1, a.len);
-    const i = (try a.next()).?;
-    try std.testing.expectEqual(3.141592, i.v);
-    try std.testing.expectEqual(null, a.next());
-}
-
-test "array of 1" {
-    var a = Array(Integer){};
-    const buf = &[_]u8{
-        1 << 1, // array block length 1
-        2 << 1, // number 2
-        0, // array end
-        '?', // stuff beyond the array
-    };
-    const rem = try a.consume(buf);
-    try std.testing.expectEqual(1, rem.len);
-    try std.testing.expectEqual(1, a.len);
-    const i = (try a.next()).?;
-    try std.testing.expectEqual(2, i.v);
-    try std.testing.expectEqual(null, a.next());
-}
-
-test "array of 2" {
-    var a = Array(String){};
-    const buf = &[_]u8{
-        2 << 1, // array block length 2
-        1 << 1, // string(len 1)
-        'A',
-        2 << 1, // string(len 2)
-        'B',
-        'C',
-        0, // array end
-    };
-    const rem = try a.consume(buf);
-    try std.testing.expectEqual(0, rem.len);
-    try std.testing.expectEqual(2, a.len);
-    var i = (try a.next()).?;
-    try std.testing.expectEqualStrings("A", i.v);
-    i = (try a.next()).?;
-    try std.testing.expectEqualStrings("BC", i.v);
-    try std.testing.expectEqual(null, a.next());
-}
-
-test "array of 2 in 2 blocks" {
-    var a = Array(String){};
-    const buf = &[_]u8{
-        1 << 1, // array block#1 length 1
-        1 << 1, // title(len 2)
-        'A',
-        1 << 1, // array block#2 length 1
-        2 << 1, // title(len 2)
-        'B',
-        'C',
-        0, // array end
-    };
-    const rem = try a.consume(buf);
-    try std.testing.expectEqual(0, rem.len);
-    try std.testing.expectEqual(2, a.len);
-    var i = (try a.next()).?;
-    try std.testing.expectEqualStrings("A", i.v);
-    i = (try a.next()).?;
-    try std.testing.expectEqualStrings("BC", i.v);
-    try std.testing.expectEqual(null, a.next());
-}
-
-// Array blocks are purposefully given invalid data, as the array consume()
-// should skip over them. They will only cause trouble once iterated over.
-test "array with marked-length blocks" {
-    var a = Array(String){};
-    const buf = &[_]u8{
-        (3 << 1) - 1, // block#1 size -3
-        12 << 1, // block#1 byte length 12
-        'I', 'N', 'V', 'A', 'L', 'I', 'D', ' ', 'D', 'A', 'T', 'A', // block#2 garbage data
-        (13 << 1) - 1, // block#2 size -13
-        0, // block#2 byte length 0
-        0, // array end
-    };
-    const rem = try a.consume(buf);
-    try std.testing.expectEqual(0, rem.len);
-    try std.testing.expectEqual(16, a.len);
-}
-
-test "array reading marked-length blocks" {
-    var a = Array(String){};
-    const buf = &[_]u8{
-        (1 << 1) - 1, // block#1 size -1
-        11 << 1, // block#1 byte length 11
-        10 << 1, // string len 10
-    } ++ "VALID DATA" ++ &[_]u8{
-        0, // array end
-    };
-    const rem = try a.consume(buf);
-    try std.testing.expectEqual(0, rem.len);
-    try std.testing.expectEqual(1, a.len);
-    const i = (try a.next()).?;
-    try std.testing.expectEqualStrings("VALID DATA", i.v);
-    try std.testing.expectEqual(null, a.next());
-}
-
-test "array of 0" {
-    var a = Array(Integer){};
-    const buf = &[_]u8{
-        0, // array end
-    };
-    const rem = try a.consume(buf);
-    try std.testing.expectEqual(0, rem.len);
-    try std.testing.expectEqual(null, a.next());
-}
-
-test "incorrect usage" {
-    var a = Array(Integer){};
-    const buf = &[_]u8{
-        0, // array end
-    };
-    try std.testing.expectError(ReadError.UninitializedOrSpentIterator, a.next());
-    const rem = try a.consume(buf);
-    try std.testing.expectEqual(0, rem.len);
-    try std.testing.expectEqual(null, a.next());
-    try std.testing.expectError(ReadError.UninitializedOrSpentIterator, a.next());
+    var a: Array(i32) = undefined;
+    _ = try a.readOwn(buf);
 }
 
 // +-+-+
@@ -454,7 +161,7 @@ test "incorrect usage" {
 // |3|4|
 // +-+-+
 test "2d array" {
-    var a = Array(Array(Integer)){};
+    var a = Array(Array(i32)){};
     const buf = &[_]u8{
         2 << 1, // 2 rows
         2 << 1, // 1st row: 2 columns
@@ -467,40 +174,28 @@ test "2d array" {
         0, // cols end
         0, // rows end
     };
-    const rem = try a.consume(buf);
+    const rem = try read(Array(Array(i32)), &a, buf);
     try std.testing.expectEqual(0, rem.len);
     try std.testing.expectEqual(2, a.len);
     const row1 = (try a.next()).?;
     try std.testing.expectEqual(2, row1.len);
-    var cell = (try row1.next()).?;
-    try std.testing.expectEqual(1, cell.v);
-    cell = (try row1.next()).?;
-    try std.testing.expectEqual(2, cell.v);
+    var cell = (try row1.next()).?.*;
+    try std.testing.expectEqual(1, cell);
+    cell = (try row1.next()).?.*;
+    try std.testing.expectEqual(2, cell);
     try std.testing.expectEqual(null, row1.next());
     const row2 = (try a.next()).?;
     try std.testing.expectEqual(2, row2.len);
-    cell = (try row2.next()).?;
-    try std.testing.expectEqual(3, cell.v);
-    cell = (try row2.next()).?;
-    try std.testing.expectEqual(4, cell.v);
+    cell = (try row2.next()).?.*;
+    try std.testing.expectEqual(3, cell);
+    cell = (try row2.next()).?.*;
+    try std.testing.expectEqual(4, cell);
     try std.testing.expectEqual(null, row2.next());
     try std.testing.expectEqual(null, a.next());
 }
 
-pub fn Map(comptime V: type) type {
-    const Entry = struct {
-        key: String = undefined,
-        value: V = undefined,
-        pub fn consume(self: *@This(), buf: []const u8) ![]const u8 {
-            const rem = try self.key.consume(buf);
-            return try self.value.consume(rem);
-        }
-    };
-    return Array(Entry);
-}
-
 test "map of 2" {
-    var m: Map(Integer) = undefined;
+    var m: Map(i32) = undefined;
     const buf = &[_]u8{
         2 << 1, // array block length 2
         1 << 1, // string(len 1)
@@ -512,19 +207,104 @@ test "map of 2" {
         5 << 1, // number 5
         0, // array end
     };
-    _ = try m.consume(buf);
+    _ = try read(Map(i32), &m, buf);
     try std.testing.expectEqual(2, m.len);
     var i = (try m.next()).?;
-    try std.testing.expectEqual(4, i.value.v);
-    try std.testing.expectEqualStrings("A", i.key.v);
+    try std.testing.expectEqual(4, i.value);
+    try std.testing.expectEqualStrings("A", i.key);
     i = (try m.next()).?;
-    try std.testing.expectEqual(5, i.value.v);
-    try std.testing.expectEqualStrings("BC", i.key.v);
+    try std.testing.expectEqual(5, i.value);
+    try std.testing.expectEqualStrings("BC", i.key);
 }
 
-pub inline fn Nullable(comptime T: type) type {
-    return Union(union(enum) {
-        none,
-        val: T,
-    });
+test "read record" {
+    const buf = &[_]u8{
+        1, // valid: true
+        2 << 1, // message:len 2
+        'H',
+        'I',
+        1, // logged: true
+        0, // terrible: false
+        1 << 1, // items array: len 1
+        5 << 1, // items[0] = 5
+        0, // end of array
+        0, // onion type: the i32 thing
+        2 << 1, // onion.number = 2
+    };
+    const Record = struct {
+        valid: bool,
+        message: []const u8,
+        flags: struct {
+            logged: bool,
+            terrible: bool,
+        },
+        items: Array(i32),
+        onion: union(enum) {
+            number: i32,
+            none,
+        },
+    };
+    var r: Record = undefined;
+    const rem = try read(Record, &r, buf);
+    try std.testing.expectEqual(true, r.valid);
+    try std.testing.expectEqualStrings("HI", r.message);
+    try std.testing.expectEqual(true, r.flags.logged);
+    try std.testing.expectEqual(false, r.flags.terrible);
+    try std.testing.expectEqual(5, (try r.items.next()).?.*);
+    try std.testing.expectEqual(2, r.onion.number);
+    try std.testing.expectEqual(0, rem.len);
+}
+
+test "read fixed" {
+    const buf = "Bonjourno";
+    const Record = struct {
+        fixed: *[7]u8,
+    };
+    var r: Record = undefined;
+    const rem = try read(Record, &r, buf);
+    try std.testing.expectEqual(2, rem.len);
+    try std.testing.expectEqualStrings("Bonjour", (r.fixed.*)[0..7]);
+}
+
+test "assert fixed does not copy" {
+    var origBuf: [9]u8 = undefined;
+    @memcpy(&origBuf, "Bonjourno");
+    var buf = origBuf[0..origBuf.len];
+
+    const Record = struct {
+        fixed: *[7]u8,
+    };
+    var r: Record = undefined;
+    const rem = try read(Record, &r, buf);
+    try std.testing.expectEqual(2, rem.len);
+    try std.testing.expectEqualStrings("Bonjour", (r.fixed.*)[0..7]);
+    buf[3] = 's';
+    buf[5] = 'i';
+    try std.testing.expectEqualStrings("Bonsoir", (r.fixed.*)[0..7]);
+}
+
+test "parse enum from avro" {
+    const Gabber = enum {
+        take,
+        off,
+        every,
+        zig,
+        move,
+    };
+    var e: Gabber = undefined;
+    const buf = &[_]u8{
+        4 << 1, // move
+        3 << 1, // zig
+        4 << 1, // move
+        3 << 1, // zig
+    };
+    var rem = try read(Gabber, &e, buf);
+    try std.testing.expectEqual(.move, e);
+    rem = try read(Gabber, &e, rem);
+    try std.testing.expectEqual(.zig, e);
+    rem = try read(Gabber, &e, rem);
+    try std.testing.expectEqual(.move, e);
+    rem = try read(Gabber, &e, rem);
+    try std.testing.expectEqual(.zig, e);
+    try std.testing.expectEqual(0, rem.len);
 }
