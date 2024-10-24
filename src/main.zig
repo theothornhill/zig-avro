@@ -7,68 +7,68 @@ pub fn main() !void {
     const start = timer.lap();
     var i: usize = 0;
     while (i < 100_000_000) : (i += 1) {
-        var x: avro.Record(Incident) = undefined;
-        _ = try x.consume(payload[5..]);
+        var x: Incident = undefined;
+        _ = try avro.read(Incident, &x, payload[5..]);
     }
     const end = timer.lap();
 
-    std.debug.print("time: {}\n", .{(end - start) / 1000000});
+    std.debug.print("time: {}\n", .{(end - start) / 1_000_000});
 }
 
 pub const Incident = struct {
-    id: avro.String,
-    masterId: avro.Nullable(avro.String),
-    eventId: avro.String,
-    participantId: avro.Nullable(avro.String),
-    referencedParticipantId: avro.Nullable(avro.String),
-    sportType: avro.Enum(enum { FOOTBALL, ICE_HOCKEY, UNDEFINED }),
-    sportSpecifics: avro.Nullable(avro.String),
-    incidentType: avro.Enum(enum { REGULAR_GOAL, UNDEFINED }),
-    elapsedTime: avro.Nullable(avro.Integer),
-    sortOrder: avro.Nullable(avro.Integer),
-    deleted: avro.Bool,
-    tsConnectorIn: avro.Nullable(avro.Long),
-    tsConnectorOut: avro.Nullable(avro.Long),
-    connectorId: avro.Nullable(avro.String),
-    tsAdminIn: avro.Nullable(avro.Long),
-    tsAdminOut: avro.Nullable(avro.Long),
-    properties: avro.Map(avro.String),
+    id: []const u8,
+    masterId: union(enum) { none, val: []const u8 },
+    eventId: []const u8,
+    participantId: union(enum) { none, val: []const u8 },
+    referencedParticipantId: union(enum) { none, val: []const u8 },
+    sportType: enum { FOOTBALL, ICE_HOCKEY, UNDEFINED },
+    sportSpecifics: union(enum) { none, val: []const u8 },
+    incidentType: enum { REGULAR_GOAL, UNDEFINED },
+    elapsedTime: union(enum) { none, val: i32 },
+    sortOrder: union(enum) { none, val: i32 },
+    deleted: bool,
+    tsConnectorIn: union(enum) { none, val: i64 },
+    tsConnectorOut: union(enum) { none, val: i64 },
+    connectorId: union(enum) { none, val: []const u8 },
+    tsAdminIn: union(enum) { none, val: i64 },
+    tsAdminOut: union(enum) { none, val: i64 },
+    properties: avro.Map([]const u8),
 };
 
 test "incident" {
-    var i: avro.Record(Incident) = undefined;
-    _ = try i.consume(payload[5..]);
+    var i: Incident = undefined;
+    _ = try avro.read(Incident, &i, payload[5..]);
 
-    try std.testing.expectEqualStrings("ba1826b3-8da4-5df5-9ba7-58db4c1a059a", i.record.id.v);
-    try std.testing.expectEqualStrings("8e5a8fb1-1c88-4d75-b1a3-9783f9f801ba", i.record.eventId.v);
-    try std.testing.expectEqualStrings("39ff76de-b0e7-4660-bb43-9d935a7cde87", i.record.participantId.type.val.v);
-    try std.testing.expectEqualStrings("708c2db5-c014-47ff-ad1d-b9f7eb7f2eb1", i.record.referencedParticipantId.type.val.v);
+    try std.testing.expectEqualStrings("ba1826b3-8da4-5df5-9ba7-58db4c1a059a", i.id);
+    try std.testing.expectEqualStrings("8e5a8fb1-1c88-4d75-b1a3-9783f9f801ba", i.eventId);
+    try std.testing.expectEqualStrings("39ff76de-b0e7-4660-bb43-9d935a7cde87", i.participantId.val);
+    try std.testing.expectEqualStrings("708c2db5-c014-47ff-ad1d-b9f7eb7f2eb1", i.referencedParticipantId.val);
 
-    switch (i.record.connectorId.type) {
+    switch (i.connectorId) {
         .none => try std.testing.expect(true),
         .val => try std.testing.expect(false),
     }
 
-    switch (i.record.masterId.type) {
+    switch (i.masterId) {
         .none => try std.testing.expect(true),
         .val => try std.testing.expect(false),
     }
 
-    switch (i.record.sportSpecifics.type) {
+    switch (i.sportSpecifics) {
         .none => try std.testing.expect(true),
         .val => try std.testing.expect(false),
     }
 
-    try std.testing.expectEqual(1253, i.record.elapsedTime.type.val.v);
-    try std.testing.expectEqual(6, i.record.sortOrder.type.val.v);
-    try std.testing.expectEqual(.UNDEFINED, i.record.incidentType.v); // I don't have the full enum yet
-    try std.testing.expect(!i.record.deleted.v);
+    try std.testing.expectEqual(1253, i.elapsedTime.val);
+    try std.testing.expectEqual(6, i.sortOrder.val);
+    try std.testing.expectEqual(.UNDEFINED, i.incidentType); // I don't have the full enum yet
+    try std.testing.expect(!i.deleted);
 
-    try std.testing.expectEqual(1729365911699858977, i.record.tsAdminIn.type.val.v);
-    try std.testing.expectEqual(1729365911718795206, i.record.tsAdminOut.type.val.v);
+    try std.testing.expectEqual(1729365911699858977, i.tsAdminIn.val);
+    try std.testing.expectEqual(1729365911718795206, i.tsAdminOut.val);
 
-    // while (try i.record.properties.next()) |val| {
-    //     try std.testing.expectEqualStrings("ENETPULSE:player_name", val.key.v);
+    // while (try i.properties.next()) |val| {
+    //     try std.testing.expectEqualStrings("ENETPULSE:player_name", val.key);
     // }
 }
 

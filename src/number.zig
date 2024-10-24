@@ -1,14 +1,6 @@
 const std = @import("std");
+const ReadError = @import("errors.zig").ReadError;
 const leb = std.leb;
-
-pub const ReadLongError = error{
-    Overflow,
-    InvalidEOF,
-};
-
-pub const WriteLongError = error{
-    Overflow,
-};
 
 pub fn readInt(dst: *i32, buf: []const u8) ![]const u8 {
     return readNumber(i32, dst, buf);
@@ -65,17 +57,17 @@ pub fn readUleb128(comptime T: type, buf: []const u8) !Uleb128(T) {
         i += 1;
     }) {
         if (i >= buf.len) {
-            return error.EndOfStream;
+            return ReadError.UnexpectedEndOfBuffer;
         }
         const byte = buf[i];
 
         const ov = @shlWithOverflow(@as(T, byte & 0x7f), group * 7);
-        if (ov[1] != 0) return error.Overflow;
+        if (ov[1] != 0) return ReadError.IntegerOverflow;
 
         value |= ov[0];
         if (byte & 0x80 == 0) break;
     } else {
-        return error.Overflow;
+        return ReadError.IntegerOverflow;
     }
 
     return .{
@@ -128,15 +120,6 @@ inline fn zigZagDecode(comptime T: type, n: T) T {
     return if (n & 1 == 1) ~(n >> 1) else (n >> 1);
 }
 
-pub const ReadFloatingPointError = error{
-    Overflow,
-    InvalidEOF,
-};
-
-pub const WriteFloatingPointError = error{
-    Overflow,
-};
-
 inline fn readFloatingPointNumber(comptime T: type, dst: *T, buf: []const u8) ![]const u8 {
     const U: type = switch (T) {
         f32 => u32,
@@ -145,7 +128,7 @@ inline fn readFloatingPointNumber(comptime T: type, dst: *T, buf: []const u8) ![
     };
 
     if (buf.len < @sizeOf(U)) {
-        return error.InvalidEOF;
+        return ReadError.UnexpectedEndOfBuffer;
     }
 
     var stream = std.io.fixedBufferStream(buf);
@@ -233,7 +216,7 @@ test "read int and long" {
     var test_i32: i32 = 123;
     var test_i64: i64 = 123;
 
-    try std.testing.expectError(error.EndOfStream, readLong(&test_i64, &[_]u8{
+    try std.testing.expectError(ReadError.UnexpectedEndOfBuffer, readLong(&test_i64, &[_]u8{
         0b10010110,
         0b10010110,
         0b10010110,
