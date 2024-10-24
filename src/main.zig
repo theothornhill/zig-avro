@@ -67,9 +67,11 @@ test "incident" {
     try std.testing.expectEqual(1729365911699858977, i.tsAdminIn.val);
     try std.testing.expectEqual(1729365911718795206, i.tsAdminOut.val);
 
-    // while (try i.properties.next()) |val| {
-    //     try std.testing.expectEqualStrings("ENETPULSE:player_name", val.key);
-    // }
+    while (try i.properties.next()) |val| {
+        if (std.mem.eql(u8, val.key, "ENETPULSE:player_name")) {
+            try std.testing.expectEqualStrings("Jannik Froewis", val.value);
+        }
+    }
 }
 
 const payload = [_]u8{
