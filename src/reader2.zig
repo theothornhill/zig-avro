@@ -66,7 +66,7 @@ fn consumeUnion(comptime U: type, u: *U, buf: []const u8) ![]const u8 {
 pub fn Array(comptime T: type) type {
     return struct {
         item: T = undefined,
-        arr_len: usize = 0,
+        len: usize = 0,
         currentBlockLen: i64 = 0,
         restBuf: []const u8 = &.{},
         valid: bool = false,
@@ -104,7 +104,7 @@ pub fn Array(comptime T: type) type {
         /// `blockItems`, in which we should flip it to positive and read another varint
         /// describing the `blockBytesLength`.
         pub fn consumeOwn(self: *Array(T), buf: []const u8) ![]const u8 {
-            self.arr_len = 0;
+            self.len = 0;
             self.restBuf = buf;
             self.currentBlockLen = 0;
             var blockItems: i64 = 0;
@@ -123,7 +123,7 @@ pub fn Array(comptime T: type) type {
                     for (0..@bitCast(blockItems)) |_|
                         rem = try consume(T, &self.item, rem);
                 }
-                self.arr_len += @bitCast(blockItems);
+                self.len += @bitCast(blockItems);
             }
         }
     };
@@ -149,6 +149,68 @@ test "consume array" {
     };
     var a: Array(i32) = undefined;
     _ = try a.consumeOwn(buf);
+}
+
+// +-+-+
+// |1|2|
+// +-+-+
+// |3|4|
+// +-+-+
+test "2d array" {
+    var a = Array(Array(i32)){};
+    const buf = &[_]u8{
+        2 << 1, // 2 rows
+        2 << 1, // 1st row: 2 columns
+        1 << 1, // R1C1=1
+        2 << 1, // R1C2=2
+        0, // cols end
+        2 << 1, // 2nd row: 2 columns
+        3 << 1, // R2C1=3
+        4 << 1, // R2C2=4
+        0, // cols end
+        0, // rows end
+    };
+    const rem = try consume(Array(Array(i32)), &a, buf);
+    try std.testing.expectEqual(0, rem.len);
+    try std.testing.expectEqual(2, a.len);
+    const row1 = (try a.next()).?;
+    try std.testing.expectEqual(2, row1.len);
+    var cell = (try row1.next()).?.*;
+    try std.testing.expectEqual(1, cell);
+    cell = (try row1.next()).?.*;
+    try std.testing.expectEqual(2, cell);
+    try std.testing.expectEqual(null, row1.next());
+    const row2 = (try a.next()).?;
+    try std.testing.expectEqual(2, row2.len);
+    cell = (try row2.next()).?.*;
+    try std.testing.expectEqual(3, cell);
+    cell = (try row2.next()).?.*;
+    try std.testing.expectEqual(4, cell);
+    try std.testing.expectEqual(null, row2.next());
+    try std.testing.expectEqual(null, a.next());
+}
+
+test "map of 2" {
+    var m: Map(i32) = undefined;
+    const buf = &[_]u8{
+        2 << 1, // array block length 2
+        1 << 1, // string(len 1)
+        'A',
+        4 << 1, // number 4
+        2 << 1, // string(len 2)
+        'B',
+        'C',
+        5 << 1, // number 5
+        0, // array end
+    };
+    _ = try consume(Map(i32), &m, buf);
+    try std.testing.expectEqual(2, m.len);
+    var i = (try m.next()).?;
+    try std.testing.expectEqual(4, i.value);
+    try std.testing.expectEqualStrings("A", i.key);
+    i = (try m.next()).?;
+    try std.testing.expectEqual(5, i.value);
+    try std.testing.expectEqualStrings("BC", i.key);
 }
 
 test "consume record" {
