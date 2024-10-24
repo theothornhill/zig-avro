@@ -34,6 +34,8 @@ pub fn consume(comptime T: type, v: *T, buf: []const u8) ![]const u8 {
 }
 
 fn consumeFixed(len: comptime_int, tgt: **[len]u8, buf: []const u8) ![]const u8 {
+    if (buf.len < len)
+        return ReadError.UnexpectedEndOfBuffer;
     const fixedStart: *u8 = @constCast(&buf[0]);
     tgt.* = @ptrCast(fixedStart);
     return buf[len..];
