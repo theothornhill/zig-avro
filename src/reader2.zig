@@ -191,10 +191,13 @@ test "consume record" {
 
 test "consume fixed" {
     const buf = "Bonjourno";
-    var dest: *[7]u8 = undefined;
-    const rem = try consume(*[7]u8, &dest, buf);
+    const Record = struct {
+        fixed: *[7]u8,
+    };
+    var r: Record = undefined;
+    const rem = try consume(Record, &r, buf);
     try std.testing.expectEqual(2, rem.len);
-    try std.testing.expectEqualStrings("Bonjour", (dest.*)[0..7]);
+    try std.testing.expectEqualStrings("Bonjour", (r.fixed.*)[0..7]);
 }
 
 test "assert fixed does not copy" {
@@ -202,11 +205,14 @@ test "assert fixed does not copy" {
     @memcpy(&origBuf, "Bonjourno");
     var buf = origBuf[0..origBuf.len];
 
-    var dest: *[7]u8 = undefined;
-    const rem = try consume(*[7]u8, &dest, buf);
+    const Record = struct {
+        fixed: *[7]u8,
+    };
+    var r: Record = undefined;
+    const rem = try consume(Record, &r, buf);
     try std.testing.expectEqual(2, rem.len);
-    try std.testing.expectEqualStrings("Bonjour", (dest.*)[0..7]);
+    try std.testing.expectEqualStrings("Bonjour", (r.fixed.*)[0..7]);
     buf[3] = 's';
     buf[5] = 'i';
-    try std.testing.expectEqualStrings("Bonsoir", (dest.*)[0..7]);
+    try std.testing.expectEqualStrings("Bonsoir", (r.fixed.*)[0..7]);
 }
