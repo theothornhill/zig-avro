@@ -22,11 +22,24 @@ pub fn read(comptime T: type, v: *T, buf: []const u8) ![]const u8 {
                 .@"enum" => return try readEnum(T, v, buf),
                 .@"union" => return try readUnion(T, v, buf),
                 .pointer => return try readFixed(v.*.len, v, buf),
+                .optional => |opt| return try readOptional(opt.child, v, buf),
                 else => {},
             }
             @compileError("unsupported field type " ++ @typeName(T));
         },
     }
+}
+
+pub fn readOptional(comptime T: type, v: *?T, buf: []const u8) ![]const u8 {
+    if (buf.len < 1) {
+        return error.UnexpectedEndOfBuffer;
+    }
+    if (buf[0] == 0) {
+        v.* = null;
+        return buf[1..];
+    }
+    v.* = undefined;
+    return try read(T, &(v.*.?), buf[1..]);
 }
 
 fn readEnum(comptime E: type, e: *E, buf: []const u8) ![]const u8 {
@@ -219,22 +232,34 @@ test "map of 2" {
 
 test "read record" {
     const buf = &[_]u8{
-        1, // valid: true
-        2 << 1, // message:len 2
-        'H',
-        'I',
+        0,
+        0,
+        1 << 1,
         1, // logged: true
         0, // terrible: false
         1 << 1, // items array: len 1
-        5 << 1, // items[0] = 5
+        5 << 1, // items[0] = 5
+        0, // end of array
+        0, // onion type: the i32 thing
+        2 << 1, // onion.number = 2
+
+        1 << 1,
+        1, // valid: true
+        1 << 1,
+        2 << 1, // message:len 2
+        'H',
+        'I',
+        0, // null record
+        1 << 1, // items array: len 1
+        5 << 1, // items[0] = 5
         0, // end of array
         0, // onion type: the i32 thing
         2 << 1, // onion.number = 2
     };
     const Record = struct {
-        valid: bool,
-        message: []const u8,
-        flags: struct {
+        valid: ?i32,
+        message: ?[]const u8,
+        flags: ?struct {
             logged: bool,
             terrible: bool,
         },
@@ -245,11 +270,17 @@ test "read record" {
         },
     };
     var r: Record = undefined;
-    const rem = try read(Record, &r, buf);
-    try std.testing.expectEqual(true, r.valid);
-    try std.testing.expectEqualStrings("HI", r.message);
-    try std.testing.expectEqual(true, r.flags.logged);
-    try std.testing.expectEqual(false, r.flags.terrible);
+    var rem = try read(Record, &r, buf);
+    try std.testing.expectEqual(null, r.valid);
+    try std.testing.expectEqual(null, r.message);
+    try std.testing.expectEqual(true, r.flags.?.logged);
+    try std.testing.expectEqual(false, r.flags.?.terrible);
+
+    rem = try read(Record, &r, rem);
+    try std.testing.expectEqual(-1, r.valid.?);
+
+    try std.testing.expectEqualStrings("HI", r.message.?);
+    try std.testing.expectEqual(null, r.flags);
     try std.testing.expectEqual(5, (try r.items.next()).?.*);
     try std.testing.expectEqual(2, r.onion.number);
     try std.testing.expectEqual(0, rem.len);
