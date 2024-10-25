@@ -9,15 +9,14 @@ pub fn read(dst: *bool, buf: []const u8) ![]const u8 {
     if (buf.len < 1) {
         return ReadBoolError.InvalidEOF;
     }
-    var stream = std.io.fixedBufferStream(buf);
-    const num = try stream.reader().readByte();
+    const num = buf[0];
     dst.* = switch (num) {
         0 => false,
         1 => true,
         else => return ReadBoolError.InvalidBool,
     };
 
-    return buf[try stream.getPos()..];
+    return buf[1..];
 }
 
 pub fn write(value: bool, buf: []u8) !void {
