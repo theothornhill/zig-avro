@@ -15,7 +15,7 @@ pub fn build(b: *std.Build) void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
-    _ = b.addModule("zigavro", .{
+    _ = b.addModule("zig-avro", .{
         .root_source_file = b.path("src/reader.zig"),
         .target = target,
         .optimize = optimize,
@@ -27,7 +27,7 @@ pub fn build(b: *std.Build) void {
     // b.installArtifact(lib);
 
     const exe = b.addExecutable(.{
-        .name = "zigavro",
+        .name = "zig-avro",
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,

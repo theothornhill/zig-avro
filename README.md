@@ -1,4 +1,4 @@
-# zigavro
+# zig-avro
 
 ## Avro spec
 - [1.12.0](https://avro.apache.org/docs/1.12.0/)
