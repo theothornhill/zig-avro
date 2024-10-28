@@ -19,9 +19,10 @@ pub fn read(dst: *bool, buf: []const u8) ![]const u8 {
     return buf[1..];
 }
 
-pub fn write(value: bool, buf: []u8) !void {
+pub fn write(value: bool, buf: []u8) ![]const u8 {
     var stream = std.io.fixedBufferStream(buf);
     try stream.writer().writeByte(if (value) 1 else 0);
+    return buf[0..1];
 }
 
 test read {
@@ -47,12 +48,12 @@ test write {
     var buf: [1]u8 = undefined;
 
     var b: bool = undefined;
-    try write(false, &buf);
+    _ = try write(false, &buf);
     _ = try read(&b, &buf);
     try std.testing.expect(!b);
 
     b = undefined;
-    try write(true, &buf);
+    _ = try write(true, &buf);
     _ = try read(&b, &buf);
     try std.testing.expect(b);
 }

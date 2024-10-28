@@ -10,11 +10,11 @@ pub fn readLong(dst: *i64, buf: []const u8) ![]const u8 {
     return readNumber(i64, dst, buf);
 }
 
-pub fn writeInt(value: i32, buf: []u8) !void {
+pub fn writeInt(value: i32, buf: []u8) ![]const u8 {
     return writeNumber(i32, value, buf);
 }
 
-pub fn writeLong(value: i64, buf: []u8) !void {
+pub fn writeLong(value: i64, buf: []u8) ![]const u8 {
     return writeNumber(i64, value, buf);
 }
 
@@ -26,11 +26,11 @@ pub fn readDouble(dst: *f64, buf: []const u8) ![]const u8 {
     return readFloatingPointNumber(f64, dst, buf);
 }
 
-pub fn writeFloat(value: f32, buf: []u8) !void {
+pub fn writeFloat(value: f32, buf: []u8) ![]const u8 {
     return writeFloatingPointNumber(f32, value, buf);
 }
 
-pub fn writeDouble(value: f64, buf: []u8) !void {
+pub fn writeDouble(value: f64, buf: []u8) ![]const u8 {
     return writeFloatingPointNumber(f64, value, buf);
 }
 
@@ -91,7 +91,7 @@ inline fn readNumber(comptime T: type, dst: *T, buf: []const u8) ![]const u8 {
     return buf[num.bytes_read..];
 }
 
-inline fn writeNumber(comptime T: type, value: T, buf: []u8) !void {
+inline fn writeNumber(comptime T: type, value: T, buf: []u8) ![]const u8 {
     const U: type = switch (T) {
         i32 => u32,
         i64 => u64,
@@ -106,6 +106,7 @@ inline fn writeNumber(comptime T: type, value: T, buf: []u8) !void {
         stream.writer(),
         zigZagEncode(U, @as(U, @bitCast(value))),
     );
+    return buf[0..stream.pos];
 }
 
 inline fn zigZagEncode(comptime T: type, n: T) T {
@@ -137,7 +138,7 @@ inline fn readFloatingPointNumber(comptime T: type, dst: *T, buf: []const u8) ![
     return buf[@sizeOf(U)..];
 }
 
-inline fn writeFloatingPointNumber(comptime T: type, value: T, buf: []u8) !void {
+inline fn writeFloatingPointNumber(comptime T: type, value: T, buf: []u8) ![]const u8 {
     const U: type = switch (T) {
         f32 => u32,
         f64 => u64,
@@ -145,6 +146,7 @@ inline fn writeFloatingPointNumber(comptime T: type, value: T, buf: []u8) !void 
     };
     var stream = std.io.fixedBufferStream(buf);
     try stream.writer().writeInt(U, @bitCast(value), .big);
+    return buf[0..stream.pos];
 }
 
 test "read float and double" {
@@ -175,14 +177,14 @@ test "write float and double" {
     };
 
     var buf: [4]u8 = undefined;
-    try writeFloat(3.141592, &buf);
+    _ = try writeFloat(3.141592, &buf);
     try std.testing.expectEqualSlices(u8, res, &buf);
 
     res = &[_]u8{
         0xC0, 0x49, 0x0F, 0xD8,
     };
     buf = undefined;
-    try writeFloat(-3.141592, &buf);
+    _ = try writeFloat(-3.141592, &buf);
     try std.testing.expectEqualSlices(u8, res, &buf);
 
     const res2 = &[_]u8{
@@ -190,7 +192,7 @@ test "write float and double" {
     };
 
     var buf2: [8]u8 = undefined;
-    try writeDouble(3.141592653589793115997963468544185161590576171875, &buf2);
+    _ = try writeDouble(3.141592653589793115997963468544185161590576171875, &buf2);
     try std.testing.expectEqualSlices(u8, res2, &buf2);
 }
 
@@ -244,7 +246,7 @@ test "write int and long" {
     const res = &[_]u8{ 0xAC, 0x02 };
 
     var buf: [2]u8 = undefined;
-    try writeInt(150, &buf);
+    _ = try writeInt(150, &buf);
     try std.testing.expectEqualSlices(u8, res, &buf);
 
     const negativeTwo = &[_]u8{
@@ -252,7 +254,7 @@ test "write int and long" {
     };
 
     var negBuf: [1]u8 = undefined;
-    try writeLong(-2, &negBuf);
+    _ = try writeLong(-2, &negBuf);
     try std.testing.expectEqualSlices(u8, negativeTwo, &negBuf);
 
     var negBuf2: [0]u8 = undefined;
