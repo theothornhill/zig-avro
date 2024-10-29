@@ -18,11 +18,26 @@ pub fn write(comptime T: type, v: *T, buf: []u8) ![]const u8 {
                     return try writeRecord(T, v, buf);
                 },
                 .@"enum" => return try writeEnum(T, v.*, buf),
+                .@"union" => return try writeUnion(T, v, buf),
                 else => {},
             }
             @compileError("unsupported field type " ++ @typeName(T));
         },
     }
+}
+
+fn writeUnion(comptime U: type, u: *U, buf: []u8) ![]const u8 {
+    const tagId: i32 = @intFromEnum(u.*);
+    inline for (@typeInfo(U).@"union".fields, 0..) |tag, id| {
+        if (tagId == id) {
+            const wTag = try number.writeInt(tagId, buf);
+            if (tag.type == void)
+                return buf[0..wTag.len];
+            const wVal = try write(tag.type, &@field(u, tag.name), buf[wTag.len..]);
+            return buf[0..(wTag.len + wVal.len)];
+        }
+    }
+    unreachable;
 }
 
 fn writeEnum(comptime E: type, e: E, buf: []u8) ![]const u8 {
@@ -34,6 +49,31 @@ fn writeRecord(comptime R: type, r: *R, buf: []u8) ![]const u8 {
     inline for (@typeInfo(R).@"struct".fields) |field|
         written += (try write(field.type, &@field(r, field.name), buf[written..])).len;
     return buf[0..written];
+}
+
+test "write record with union" {
+    const Temperature = union(enum) {
+        unmeasured,
+        celsius: f32,
+    };
+    const Record = struct {
+        measurement: Temperature,
+    };
+    var writeBuffer: [100]u8 = undefined;
+    var buf: []u8 = writeBuffer[0..100];
+    var r1: Record = .{
+        .measurement = .unmeasured,
+    };
+    const msg1 = try write(Record, &r1, buf);
+    var r2: Record = .{
+        .measurement = Temperature{ .celsius = 37.5 },
+    };
+    _ = try write(Record, &r2, buf[msg1.len..]);
+    var ro: Record = undefined;
+    const rem = try reader.read(Record, &ro, buf);
+    try std.testing.expectEqual(r1, ro);
+    _ = try reader.read(Record, &ro, rem);
+    try std.testing.expectEqual(r2, ro);
 }
 
 test "write record with enum" {
