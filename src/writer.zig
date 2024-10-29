@@ -20,11 +20,22 @@ pub fn write(comptime T: type, v: *T, buf: []u8) ![]const u8 {
                 .@"enum" => return try writeEnum(T, v.*, buf),
                 .@"union" => return try writeUnion(T, v, buf),
                 .pointer => return try writeFixed(v.*.len, v.*, buf),
+                .optional => |opt| return try writeOptional(opt.child, v, buf),
                 else => {},
             }
             @compileError("unsupported field type " ++ @typeName(T));
         },
     }
+}
+
+fn writeOptional(comptime O: type, o: *?O, buf: []u8) ![]const u8 {
+    if (o.*) |v| {
+        buf[0] = 2;
+        const out = try write(O, @constCast(&v), buf[1..]);
+        return buf[0..(1 + out.len)];
+    }
+    buf[0] = 0;
+    return buf[0..1];
 }
 
 fn writeFixed(len: comptime_int, v: *[len]u8, buf: []u8) ![]const u8 {
