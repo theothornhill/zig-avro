@@ -68,12 +68,26 @@ fn writeRecord(comptime R: type, r: *R, buf: []u8) ![]const u8 {
     return buf[0..written];
 }
 
+test "write optional" {
+    var writeBuffer: [100]u8 = undefined;
+    const Record = struct { troolean: ?bool };
+    var r: Record = .{ .troolean = null };
+    const out = try write(Record, &r, writeBuffer[0..100]);
+    try std.testing.expectEqual(1, out.len);
+    try std.testing.expectEqual(0, out[0]);
+    r.troolean = true;
+    const out2 = try write(Record, &r, writeBuffer[0..100]);
+    try std.testing.expectEqual(2, out2.len);
+    try std.testing.expectEqual(2, out2[0]);
+    try std.testing.expectEqual(1, out2[1]);
+}
+
 test "write fixed" {
     var writeBuffer: [100]u8 = undefined;
     var txt: [7]u8 = undefined;
     @memcpy(&txt, "Bonjour");
     const Record = struct { fixed: *[7]u8 };
-    var r = .{ .fixed = &txt };
+    var r: Record = .{ .fixed = &txt };
     const out = try write(Record, &r, writeBuffer[0..100]);
     try std.testing.expectEqual(7, out.len);
     try std.testing.expectEqualStrings("Bonjour", (writeBuffer)[0..out.len]);
