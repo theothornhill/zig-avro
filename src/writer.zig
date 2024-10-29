@@ -19,11 +19,17 @@ pub fn write(comptime T: type, v: *T, buf: []u8) ![]const u8 {
                 },
                 .@"enum" => return try writeEnum(T, v.*, buf),
                 .@"union" => return try writeUnion(T, v, buf),
+                .pointer => return try writeFixed(v.*.len, v.*, buf),
                 else => {},
             }
             @compileError("unsupported field type " ++ @typeName(T));
         },
     }
+}
+
+fn writeFixed(len: comptime_int, v: *[len]u8, buf: []u8) ![]const u8 {
+    @memcpy(buf[0..len], v);
+    return buf[0..len];
 }
 
 fn writeUnion(comptime U: type, u: *U, buf: []u8) ![]const u8 {
@@ -49,6 +55,17 @@ fn writeRecord(comptime R: type, r: *R, buf: []u8) ![]const u8 {
     inline for (@typeInfo(R).@"struct".fields) |field|
         written += (try write(field.type, &@field(r, field.name), buf[written..])).len;
     return buf[0..written];
+}
+
+test "write fixed" {
+    var writeBuffer: [100]u8 = undefined;
+    var txt: [7]u8 = undefined;
+    @memcpy(&txt, "Bonjour");
+    const Record = struct { fixed: *[7]u8 };
+    var r = .{ .fixed = &txt };
+    const out = try write(Record, &r, writeBuffer[0..100]);
+    try std.testing.expectEqual(7, out.len);
+    try std.testing.expectEqualStrings("Bonjour", (writeBuffer)[0..out.len]);
 }
 
 test "write record with union" {
