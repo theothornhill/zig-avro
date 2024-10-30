@@ -15,6 +15,8 @@ pub fn write(comptime T: type, v: *T, buf: []u8) ![]const u8 {
         else => {
             switch (@typeInfo(T)) {
                 .@"struct" => {
+                    if (@hasDecl(T, "next"))
+                        return try writeArray(T, v, buf);
                     return try writeRecord(T, v, buf);
                 },
                 .@"enum" => return try writeEnum(T, v.*, buf),
@@ -26,6 +28,31 @@ pub fn write(comptime T: type, v: *T, buf: []u8) ![]const u8 {
             @compileError("unsupported field type " ++ @typeName(T));
         },
     }
+}
+
+fn writeArray(comptime A: type, a: *A, buf: []u8) ![]const u8 {
+    var pos: usize = 0;
+    if (@hasField(A, "len")) {
+        pos += (try number.writeLong(@as(i64, a.len), buf)).len;
+        var count: u64 = 0;
+        while (try a.next()) |*val| {
+            const V = @TypeOf(val.*);
+            count += 1;
+            // todo: have a writer error
+            if (count > a.len) @panic("Iterator yielded more items than len");
+            pos += (try write(V, @constCast(val), buf[pos..])).len;
+        }
+        // todo: have a writer error
+        if (count < a.len) @panic("Iterator yielded fewer items than len");
+    } else {
+        while (try a.next()) |*val| {
+            const V = @TypeOf(val.*);
+            pos += (try number.writeInt(1, buf[pos..])).len;
+            pos += (try write(V, @constCast(val), buf[pos..])).len;
+        }
+    }
+    buf[pos] = 0;
+    return buf[0 .. pos + 1];
 }
 
 fn writeOptional(comptime O: type, o: *?O, buf: []u8) ![]const u8 {
@@ -66,6 +93,44 @@ fn writeRecord(comptime R: type, r: *R, buf: []u8) ![]const u8 {
     inline for (@typeInfo(R).@"struct".fields) |field|
         written += (try write(field.type, &@field(r, field.name), buf[written..])).len;
     return buf[0..written];
+}
+
+test "write array" {
+    var writeBuffer: [100]u8 = undefined;
+    const Record = struct {
+        list: struct {
+            itemsLeft: u4,
+            pub fn next(self: *@This()) !?i32 {
+                if (self.itemsLeft == 0) return null;
+                self.itemsLeft -= 1;
+                return 1;
+            }
+        },
+    };
+    var r: Record = undefined;
+    r.list.itemsLeft = 2;
+    const out = try write(Record, &r, writeBuffer[0..100]);
+    try std.testing.expectEqual(5, out.len);
+}
+
+test "write array with known length" {
+    var writeBuffer: [100]u8 = undefined;
+    const Record = struct {
+        list: struct {
+            len: u4,
+            yielded: u4,
+            pub fn next(self: *@This()) !?i32 {
+                if (self.yielded == self.len) return null;
+                self.yielded += 1;
+                return 1;
+            }
+        },
+    };
+    var r: Record = undefined;
+    r.list.len = 2;
+    r.list.yielded = 0;
+    const out = try write(Record, &r, writeBuffer[0..100]);
+    try std.testing.expectEqual(4, out.len);
 }
 
 test "write optional" {
