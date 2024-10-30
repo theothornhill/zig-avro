@@ -42,7 +42,7 @@ test read {
 ///
 /// Returns error if buffer is too small.
 pub inline fn write(value: []const u8, buf: []u8) ![]const u8 {
-    const pos = (try number.writeLong(value.len, buf)).len;
+    const pos = (try number.writeLong(@intCast(value.len), buf)).len;
     if (value.len > buf.len - pos) return WriteError.UnexpectedEndOfBuffer;
     @memcpy(buf[pos .. pos + value.len], value);
     return buf[0 .. pos + value.len];
