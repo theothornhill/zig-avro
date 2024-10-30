@@ -42,27 +42,32 @@ test read {
 ///
 /// Returns error if buffer is too small.
 pub inline fn write(value: []const u8, buf: []u8) !void {
-    if (value.len > buf.len) {
-        return WriteError.UnexpectedEndOfBuffer;
-    }
-
-    for (value, 0..) |b, i| {
-        buf[i] = b;
-    }
+    const pos = (try number.writeLong(value.len, buf)).len;
+    if (value.len > buf.len - pos) return WriteError.UnexpectedEndOfBuffer;
+    @memcpy(buf[pos .. pos + value.len], value);
 }
 
 test write {
     const res = "hi";
-    var buf: [2]u8 = undefined;
+    var buf: [3]u8 = undefined;
     try write(res, &buf);
-    try std.testing.expectEqualSlices(u8, res, &buf);
+    try std.testing.expectEqualSlices(u8, res, buf[1..]);
 
     const res2 = "🤪🤑🤑🤑🤑";
     var buf2: [2]u8 = undefined;
     try std.testing.expectError(WriteError.UnexpectedEndOfBuffer, write(res2, &buf2));
 
     const res3 = "🤪🤑🤑🤑🤑";
-    var buf3: [res3.len]u8 = undefined;
+    var buf3: [res3.len + 1]u8 = undefined;
     try write(res3, &buf3);
-    try std.testing.expectEqualSlices(u8, res3, &buf3);
+    try std.testing.expectEqualSlices(u8, res3, buf3[1..]);
+}
+
+test "can write then read" {
+    var buf: [10]u8 = undefined;
+    const msg = "MEEP";
+    try write(msg, &buf);
+    var beb: []const u8 = undefined;
+    _ = try read(&beb, &buf);
+    try std.testing.expectEqualSlices(u8, msg, beb);
 }
