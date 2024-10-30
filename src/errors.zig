@@ -4,3 +4,9 @@ pub const ReadError = error{
     UnexpectedEndOfBuffer,
     IntegerOverflow,
 };
+
+pub const WriteError = error{
+    ArrayTooLong,
+    ArrayTooShort,
+    UnexpectedEndOfBuffer,
+};

@@ -1,4 +1,5 @@
 const std = @import("std");
+const WriteError = @import("errors.zig").WriteError;
 
 pub const ReadBoolError = error{
     InvalidBool,
@@ -20,6 +21,7 @@ pub fn read(dst: *bool, buf: []const u8) ![]const u8 {
 }
 
 pub fn write(value: bool, buf: []u8) ![]const u8 {
+    if (buf.len < 1) return WriteError.UnexpectedEndOfBuffer;
     var stream = std.io.fixedBufferStream(buf);
     try stream.writer().writeByte(if (value) 1 else 0);
     return buf[0..1];

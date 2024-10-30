@@ -3,6 +3,7 @@ const std = @import("std");
 const string = @import("string.zig");
 const boolean = @import("bool.zig");
 const reader = @import("reader.zig");
+const WriteError = @import("errors.zig").WriteError;
 
 pub fn write(comptime T: type, v: *T, buf: []u8) ![]const u8 {
     switch (T) {
@@ -38,12 +39,10 @@ fn writeArray(comptime A: type, a: *A, buf: []u8) ![]const u8 {
         while (try a.next()) |*val| {
             const V = @TypeOf(val.*);
             count += 1;
-            // todo: have a writer error
-            if (count > a.len) @panic("Iterator yielded more items than len");
+            if (count > a.len) return WriteError.ArrayTooLong;
             pos += (try write(V, @constCast(val), buf[pos..])).len;
         }
-        // todo: have a writer error
-        if (count < a.len) @panic("Iterator yielded fewer items than len");
+        if (count < a.len) return WriteError.ArrayTooShort;
     } else {
         while (try a.next()) |*val| {
             const V = @TypeOf(val.*);
@@ -51,11 +50,13 @@ fn writeArray(comptime A: type, a: *A, buf: []u8) ![]const u8 {
             pos += (try write(V, @constCast(val), buf[pos..])).len;
         }
     }
+    if (buf.len <= pos) return WriteError.UnexpectedEndOfBuffer;
     buf[pos] = 0;
     return buf[0 .. pos + 1];
 }
 
 fn writeOptional(comptime O: type, o: *?O, buf: []u8) ![]const u8 {
+    if (buf.len < 1) return WriteError.UnexpectedEndOfBuffer;
     if (o.*) |v| {
         buf[0] = 2;
         const out = try write(O, @constCast(&v), buf[1..]);
@@ -66,6 +67,7 @@ fn writeOptional(comptime O: type, o: *?O, buf: []u8) ![]const u8 {
 }
 
 fn writeFixed(len: comptime_int, v: *[len]u8, buf: []u8) ![]const u8 {
+    if (buf.len < len) return WriteError.UnexpectedEndOfBuffer;
     @memcpy(buf[0..len], v);
     return buf[0..len];
 }

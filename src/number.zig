@@ -1,6 +1,8 @@
 const std = @import("std");
-const ReadError = @import("errors.zig").ReadError;
+const errors = @import("errors.zig");
 const leb = std.leb;
+const WriteError = errors.WriteError;
+const ReadError = errors.ReadError;
 
 pub fn readInt(dst: *i32, buf: []const u8) ![]const u8 {
     return readNumber(i32, dst, buf);
@@ -102,10 +104,14 @@ inline fn writeNumber(comptime T: type, value: T, buf: []u8) ![]const u8 {
         else => @compileError("supported types: i32, u32, i64, u64, usize, isize. Got " ++ @typeName(T)),
     };
     var stream = std.io.fixedBufferStream(buf);
-    try leb.writeUleb128(
+    leb.writeUleb128(
         stream.writer(),
         zigZagEncode(U, @as(U, @bitCast(value))),
-    );
+    ) catch |err| {
+        switch (err) {
+            error.NoSpaceLeft => return WriteError.UnexpectedEndOfBuffer,
+        }
+    };
     return buf[0..stream.pos];
 }
 
@@ -258,10 +264,10 @@ test "write int and long" {
     try std.testing.expectEqualSlices(u8, negativeTwo, &negBuf);
 
     var negBuf2: [0]u8 = undefined;
-    try std.testing.expectError(error.NoSpaceLeft, writeLong(-2, &negBuf2));
+    try std.testing.expectError(WriteError.UnexpectedEndOfBuffer, writeLong(-2, &negBuf2));
 
     var buf3: [0]u8 = undefined;
-    try std.testing.expectError(error.NoSpaceLeft, writeLong(1, &buf3));
+    try std.testing.expectError(WriteError.UnexpectedEndOfBuffer, writeLong(1, &buf3));
 }
 
 test zigZagEncode {

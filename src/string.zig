@@ -1,5 +1,6 @@
 const number = @import("number.zig");
 const std = @import("std");
+const WriteError = @import("errors.zig").WriteError;
 
 pub const ReadStringError = error{
     InvalidEOF,
@@ -37,16 +38,12 @@ test read {
     try std.testing.expectEqualStrings("DIG", out);
 }
 
-pub const WriteStringError = error{
-    BufferTooSmall,
-};
-
 /// Do bounds check on the buffer, then write contents to the buffer.
 ///
 /// Returns error if buffer is too small.
 pub inline fn write(value: []const u8, buf: []u8) !void {
     if (value.len > buf.len) {
-        return WriteStringError.BufferTooSmall;
+        return WriteError.UnexpectedEndOfBuffer;
     }
 
     for (value, 0..) |b, i| {
@@ -62,7 +59,7 @@ test write {
 
     const res2 = "🤪🤑🤑🤑🤑";
     var buf2: [2]u8 = undefined;
-    try std.testing.expectError(WriteStringError.BufferTooSmall, write(res2, &buf2));
+    try std.testing.expectError(WriteError.UnexpectedEndOfBuffer, write(res2, &buf2));
 
     const res3 = "🤪🤑🤑🤑🤑";
     var buf3: [res3.len]u8 = undefined;
