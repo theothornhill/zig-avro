@@ -5,6 +5,13 @@ const boolean = @import("bool.zig");
 const reader = @import("reader.zig");
 const WriteError = @import("errors.zig").WriteError;
 
+pub fn writeWire(comptime T: type, v: *T, buf: []u8, schema_id: [4]u8) ![]const u8 {
+    _ = number.writeInt(0, buf);
+    _ = writeFixed(4, &schema_id, buf[1..]);
+    const out = try write(T, v.*, buf[5..]);
+    return buf[0..(5 + out.len)];
+}
+
 pub fn write(comptime T: type, v: *T, buf: []u8) ![]const u8 {
     switch (T) {
         bool => return try boolean.write(v.*, buf),
