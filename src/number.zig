@@ -63,10 +63,7 @@ pub fn readUleb128(comptime T: type, buf: []const u8) !Uleb128(T) {
         }
         const byte = buf[i];
 
-        const ov = @shlWithOverflow(@as(T, byte & 0x7f), group * 7);
-        if (ov[1] != 0) return ReadError.IntegerOverflow;
-
-        value |= ov[0];
+        value |= @as(T, byte & 0x7f) << group * 7;
         if (byte & 0x80 == 0) break;
     } else {
         return ReadError.IntegerOverflow;
