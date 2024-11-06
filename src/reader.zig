@@ -29,15 +29,7 @@ pub fn read(comptime T: type, v: *T, buf: []const u8) ![]const u8 {
                 .@"enum" => return try readEnum(T, v, buf),
                 .@"union" => return try readUnion(T, v, buf),
                 .pointer => return try readFixed(v.*.len, v, buf),
-                .optional => |opt| {
-                    const value: ?Foo(opt.child) = try readOptional(opt.child, buf);
-                    if (value) |val| {
-                        v.* = val.v;
-                        return buf[@intCast(val.read)..];
-                    }
-                    v.* = null;
-                    return buf[1..];
-                },
+                .optional => |opt| return try readOptional(opt.child, v, buf),
                 else => {},
             }
             @compileError("unsupported field type " ++ @typeName(T));
@@ -45,24 +37,16 @@ pub fn read(comptime T: type, v: *T, buf: []const u8) ![]const u8 {
     }
 }
 
-pub fn readOptional(comptime T: type, buf: []const u8) !?Foo(T) {
+pub fn readOptional(comptime T: type, v: *?T, buf: []const u8) ![]const u8 {
     if (buf.len < 1) {
         return error.UnexpectedEndOfBuffer;
     }
     if (buf[0] == 0) {
-        return null;
+        v.* = null;
+        return buf[1..];
     }
-
-    var x: T = undefined;
-
-    const ret = try read(T, &x, buf[1..]);
-
-    const r: Foo(T) = .{
-        .v = x,
-        .read = @intCast((buf.len - ret.len)),
-    };
-
-    return r;
+    v.* = std.mem.zeroes(T);
+    return try read(T, &(v.*.?), buf[1..]);
 }
 
 fn readEnum(comptime E: type, e: *E, buf: []const u8) ![]const u8 {
