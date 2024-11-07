@@ -6,7 +6,7 @@ pub const ReadBoolError = error{
     InvalidEOF,
 };
 
-pub fn read(dst: *bool, buf: []const u8) ![]const u8 {
+pub fn read(dst: *bool, buf: []const u8) !usize {
     if (buf.len < 1) {
         return ReadBoolError.InvalidEOF;
     }
@@ -17,7 +17,7 @@ pub fn read(dst: *bool, buf: []const u8) ![]const u8 {
         else => return ReadBoolError.InvalidBool,
     };
 
-    return buf[1..];
+    return 1;
 }
 
 pub fn write(value: bool, buf: []u8) ![]const u8 {
@@ -30,20 +30,20 @@ pub fn write(value: bool, buf: []u8) ![]const u8 {
 test read {
     var b: bool = undefined;
 
-    const rem_false = try read(&b, &[_]u8{
+    const read_false = try read(&b, &[_]u8{
         0x00, 0x03,
     });
 
     try std.testing.expect(!b);
-    try std.testing.expectEqual(1, rem_false.len);
+    try std.testing.expectEqual(1, read_false);
 
     b = undefined;
-    const rem_true = try read(&b, &[_]u8{
+    const read_true = try read(&b, &[_]u8{
         0x01, 0x03,
     });
 
     try std.testing.expect(b);
-    try std.testing.expectEqual(1, rem_true.len);
+    try std.testing.expectEqual(1, read_true);
 }
 
 test write {

@@ -4,11 +4,11 @@ const leb = std.leb;
 const WriteError = errors.WriteError;
 const ReadError = errors.ReadError;
 
-pub fn readInt(dst: *i32, buf: []const u8) ![]const u8 {
+pub fn readInt(dst: *i32, buf: []const u8) !usize {
     return readNumber(i32, dst, buf);
 }
 
-pub fn readLong(dst: *i64, buf: []const u8) ![]const u8 {
+pub fn readLong(dst: *i64, buf: []const u8) !usize {
     return readNumber(i64, dst, buf);
 }
 
@@ -20,11 +20,11 @@ pub fn writeLong(value: i64, buf: []u8) ![]const u8 {
     return writeNumber(i64, value, buf);
 }
 
-pub fn readFloat(dst: *f32, buf: []const u8) ![]const u8 {
+pub fn readFloat(dst: *f32, buf: []const u8) !usize {
     return readFloatingPointNumber(f32, dst, buf);
 }
 
-pub fn readDouble(dst: *f64, buf: []const u8) ![]const u8 {
+pub fn readDouble(dst: *f64, buf: []const u8) !usize {
     return readFloatingPointNumber(f64, dst, buf);
 }
 
@@ -75,7 +75,7 @@ pub fn readUleb128(comptime T: type, buf: []const u8) !Uleb128(T) {
     };
 }
 
-inline fn readNumber(comptime T: type, dst: *T, buf: []const u8) ![]const u8 {
+inline fn readNumber(comptime T: type, dst: *T, buf: []const u8) !usize {
     const U: type = switch (T) {
         i32 => u32,
         i64 => u64,
@@ -87,7 +87,7 @@ inline fn readNumber(comptime T: type, dst: *T, buf: []const u8) ![]const u8 {
     };
     const num = try readUleb128(U, buf);
     dst.* = @as(T, @bitCast(zigZagDecode(U, num.val)));
-    return buf[num.bytes_read..];
+    return num.bytes_read;
 }
 
 inline fn writeNumber(comptime T: type, value: T, buf: []u8) ![]const u8 {
@@ -124,7 +124,7 @@ inline fn zigZagDecode(comptime T: type, n: T) T {
     return if (n & 1 == 1) ~(n >> 1) else (n >> 1);
 }
 
-inline fn readFloatingPointNumber(comptime T: type, dst: *T, buf: []const u8) ![]const u8 {
+inline fn readFloatingPointNumber(comptime T: type, dst: *T, buf: []const u8) !usize {
     const U: type = switch (T) {
         f32 => u32,
         f64 => u64,
@@ -138,7 +138,7 @@ inline fn readFloatingPointNumber(comptime T: type, dst: *T, buf: []const u8) ![
     var stream = std.io.fixedBufferStream(buf);
     dst.* = @bitCast(try stream.reader().readInt(U, .big));
 
-    return buf[@sizeOf(U)..];
+    return @sizeOf(U);
 }
 
 inline fn writeFloatingPointNumber(comptime T: type, value: T, buf: []u8) ![]const u8 {
@@ -155,15 +155,15 @@ inline fn writeFloatingPointNumber(comptime T: type, value: T, buf: []u8) ![]con
 test "read float and double" {
     var test_f32: f32 = undefined;
 
-    const rem_f32 = try readFloat(&test_f32, &[_]u8{
+    const read_f32 = try readFloat(&test_f32, &[_]u8{
         0x40, 0x49, 0x0F, 0xD8,
     });
     try std.testing.expectApproxEqRel(3.141592, test_f32, std.math.floatEps(f32));
-    try std.testing.expectEqual(0, rem_f32.len);
+    try std.testing.expectEqual(4, read_f32);
 
     var test_f64: f64 = undefined;
 
-    const rem_f64 = try readDouble(&test_f64, &[_]u8{
+    const read_f64 = try readDouble(&test_f64, &[_]u8{
         0x40, 0x09, 0x21, 0xFB, 0x54, 0x44, 0x2D, 0x18,
     });
     try std.testing.expectApproxEqRel(
@@ -171,7 +171,7 @@ test "read float and double" {
         test_f64,
         std.math.floatEps(f64),
     );
-    try std.testing.expectEqual(0, rem_f64.len);
+    try std.testing.expectEqual(8, read_f64);
 }
 
 test "write float and double" {
@@ -228,20 +228,20 @@ test "read int and long" {
         0b10010110,
     }));
 
-    const rem_i32 = try readInt(&test_i32, &[_]u8{
+    const read_i32 = try readInt(&test_i32, &[_]u8{
         0b10010110,
         0b1,
         0b1,
     });
-    try std.testing.expectEqual(rem_i32.len, 1);
+    try std.testing.expectEqual(2, read_i32);
     try std.testing.expectEqual(75, test_i32);
 
-    const rem_u64 = try readLong(&test_i64, &[_]u8{
+    const read_u64 = try readLong(&test_i64, &[_]u8{
         0b10010110,
         0b1,
         0b1,
     });
-    try std.testing.expectEqual(rem_u64.len, 1);
+    try std.testing.expectEqual(2, read_u64);
     try std.testing.expectEqual(75, test_i64);
 }
 

@@ -4,14 +4,12 @@ const boolean = @import("bool.zig");
 const string = @import("string.zig");
 const ReadError = @import("errors.zig").ReadError;
 
-pub fn Foo(comptime T: type) type {
-    return struct {
-        read: i64,
-        v: T,
-    };
+pub fn read(comptime T: type, v: *T, buf: []const u8) ![]const u8 {
+    const n = try readAny(T, v, buf);
+    return buf[n..];
 }
 
-pub fn read(comptime T: type, v: *T, buf: []const u8) ![]const u8 {
+pub fn readAny(comptime T: type, v: *T, buf: []const u8) !usize {
     switch (T) {
         bool => return try boolean.read(v, buf),
         i32 => return try number.readInt(v, buf),
@@ -23,7 +21,7 @@ pub fn read(comptime T: type, v: *T, buf: []const u8) ![]const u8 {
             switch (@typeInfo(T)) {
                 .@"struct" => {
                     if (@hasDecl(T, "readOwn"))
-                        return try v.readOwn(buf);
+                        return (try v.readOwn(buf));
                     return try readRecord(T, v, buf);
                 },
                 .@"enum" => return try readEnum(T, v, buf),
@@ -37,51 +35,49 @@ pub fn read(comptime T: type, v: *T, buf: []const u8) ![]const u8 {
     }
 }
 
-pub fn readOptional(comptime T: type, v: *?T, buf: []const u8) ![]const u8 {
+pub fn readOptional(comptime T: type, v: *?T, buf: []const u8) !usize {
     if (buf.len < 1) {
         return error.UnexpectedEndOfBuffer;
     }
     if (buf[0] == 0) {
         v.* = null;
-        return buf[1..];
+        return 1;
     }
     v.* = std.mem.zeroes(T);
-    return try read(T, &(v.*.?), buf[1..]);
+    return 1 + try readAny(T, &(v.*.?), buf[1..]);
 }
 
-fn readEnum(comptime E: type, e: *E, buf: []const u8) ![]const u8 {
-    var rem = buf;
+fn readEnum(comptime E: type, e: *E, buf: []const u8) !usize {
     var enumId: i32 = undefined;
-    rem = try number.readInt(&enumId, rem);
+    const n = try number.readInt(&enumId, buf);
     e.* = @enumFromInt(enumId);
-    return rem;
+    return n;
 }
 
-fn readFixed(len: comptime_int, tgt: **[len]u8, buf: []const u8) ![]const u8 {
+fn readFixed(len: comptime_int, tgt: **[len]u8, buf: []const u8) !usize {
     if (buf.len < len)
         return ReadError.UnexpectedEndOfBuffer;
     const fixedStart: *u8 = @constCast(&buf[0]);
     tgt.* = @ptrCast(fixedStart);
-    return buf[len..];
+    return len;
 }
 
-fn readRecord(comptime R: type, r: *R, buf: []const u8) ![]const u8 {
-    var rem = buf;
+fn readRecord(comptime R: type, r: *R, buf: []const u8) !usize {
+    var n: usize = 0;
     inline for (@typeInfo(R).@"struct".fields) |field|
-        rem = try read(field.type, &@field(r, field.name), rem);
-    return rem;
+        n += try readAny(field.type, &@field(r, field.name), buf[n..]);
+    return n;
 }
 
-fn readUnion(comptime U: type, u: *U, buf: []const u8) ![]const u8 {
+fn readUnion(comptime U: type, u: *U, buf: []const u8) !usize {
     var typeId: i32 = undefined;
-    var rem = buf;
-    rem = try number.readInt(&typeId, buf);
+    const n = try number.readInt(&typeId, buf);
     inline for (std.meta.fields(U), 0..) |field, id| {
         if (typeId == id) {
             u.* = @unionInit(U, field.name, undefined);
             if (field.type == void)
-                return rem;
-            return try read(field.type, &@field(u, field.name), rem);
+                return n;
+            return n + try readAny(field.type, &@field(u, field.name), buf[n..]);
         }
     }
     return ReadError.UnionIdOutOfBounds;
@@ -102,19 +98,22 @@ pub fn Array(comptime T: type) type {
         pub fn next(self: *Array(T)) !?*T {
             if (!self.valid)
                 return ReadError.UninitializedOrSpentIterator;
-            if (self.currentBlockLen == 0)
-                self.restBuf = try number.readLong(&self.currentBlockLen, self.restBuf);
+            if (self.currentBlockLen == 0) {
+                const n = try number.readLong(&self.currentBlockLen, self.restBuf);
+                self.restBuf = self.restBuf[n..];
+            }
             if (self.currentBlockLen < 0) {
                 var blockByteCount: i64 = undefined;
                 self.currentBlockLen = -self.currentBlockLen;
-                self.restBuf = try number.readLong(&blockByteCount, self.restBuf);
+                const n = try number.readLong(&blockByteCount, self.restBuf);
+                self.restBuf = self.restBuf[n..];
             }
             if (self.currentBlockLen == 0) {
                 self.valid = false;
                 return null;
             }
             self.currentBlockLen -= 1;
-            self.restBuf = try read(T, &self.item, self.restBuf);
+            self.restBuf = self.restBuf[try readAny(T, &self.item, self.restBuf)..];
             return &self.item;
         }
         /// Prepares an iterator an returns buffer after end of array.
@@ -127,25 +126,25 @@ pub fn Array(comptime T: type) type {
         /// bytes allowing us to skip past it faster. This is signalled by having a negative
         /// `blockItems`, in which we should flip it to positive and read another varint
         /// describing the `blockBytesLength`.
-        pub fn readOwn(self: *Array(T), buf: []const u8) ![]const u8 {
+        pub fn readOwn(self: *Array(T), buf: []const u8) !usize {
             self.len = 0;
             self.restBuf = buf;
             self.currentBlockLen = 0;
             var blockItems: i64 = 0;
             var blockBytesLength: i64 = 0;
-            var rem: []const u8 = buf;
+            var n: usize = 0;
             while (true) {
-                rem = try number.readLong(&blockItems, rem);
+                n += try number.readLong(&blockItems, buf[n..]);
                 if (blockItems == 0) {
                     self.valid = true;
-                    return rem;
+                    return n;
                 } else if (blockItems < 0) {
                     blockItems = -blockItems;
-                    rem = try number.readLong(&blockBytesLength, rem);
-                    rem = rem[@bitCast(blockBytesLength)..];
+                    n += try number.readLong(&blockBytesLength, buf[n..]);
+                    n += @bitCast(blockBytesLength);
                 } else {
                     for (0..@bitCast(blockItems)) |_|
-                        rem = try read(T, &self.item, rem);
+                        n += try readAny(T, &self.item, buf[n..]);
                 }
                 self.len += @bitCast(blockItems);
             }
@@ -157,9 +156,9 @@ pub fn Map(comptime V: type) type {
     const Entry = struct {
         key: []const u8 = undefined,
         value: V = undefined,
-        pub fn readOwn(self: *@This(), buf: []const u8) ![]const u8 {
-            const rem = try read([]const u8, &self.key, buf);
-            return try read(V, &self.value, rem);
+        pub fn readOwn(self: *@This(), buf: []const u8) !usize {
+            const n = try readAny([]const u8, &self.key, buf);
+            return n + try readAny(V, &self.value, buf[n..]);
         }
     };
     return Array(Entry);
@@ -172,7 +171,8 @@ test "read array" {
         0,
     };
     var a: Array(i32) = undefined;
-    _ = try a.readOwn(buf);
+    const n = try a.readOwn(buf);
+    try std.testing.expectEqual(3, n);
 }
 
 // +-+-+

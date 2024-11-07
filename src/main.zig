@@ -7,7 +7,7 @@ pub fn main() !void {
     const start = timer.lap();
     var i: usize = 0;
     while (i < 100_000_0) : (i += 1) {
-        var x: Incident = undefined;
+        var x: Incident = std.mem.zeroes(Incident);
         _ = try avro.read(Incident, &x, payload[5..]);
     }
     const end = timer.lap();
@@ -44,7 +44,6 @@ test "incident" {
     try std.testing.expectEqualStrings("39ff76de-b0e7-4660-bb43-9d935a7cde87", i.participantId.?);
     try std.testing.expectEqualStrings("708c2db5-c014-47ff-ad1d-b9f7eb7f2eb1", i.referencedParticipantId.?);
 
-    
     try std.testing.expectEqual(1253, i.elapsedTime.?);
     try std.testing.expectEqual(6, i.sortOrder.?);
     try std.testing.expectEqual(.UNDEFINED, i.incidentType); // I don't have the full enum yet

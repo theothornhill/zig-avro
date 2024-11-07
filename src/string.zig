@@ -9,31 +9,32 @@ pub const ReadStringError = error{
 /// Read a string from input `in`.
 /// Returns slice of `in` after end of string.
 /// `dst` is set to a slice of `in` containing the string.
-pub fn read(dst: *[]const u8, in: []const u8) ![]const u8 {
-    var len: i64 = 0;
-    const rem = try number.readLong(&len, in);
+pub fn read(dst: *[]const u8, in: []const u8) !usize {
+    var len_i64: i64 = 0;
+    const n = try number.readLong(&len_i64, in);
+    const len: u64 = @intCast(len_i64);
     if (in.len < len) {
         return ReadStringError.InvalidEOF;
     }
-    dst.* = rem[0..@bitCast(len)];
-    return rem[@bitCast(len)..];
+    dst.* = in[n .. n + len];
+    return n + len;
 }
 
 test read {
     var out: []u8 = &.{};
     try std.testing.expectError(ReadStringError.InvalidEOF, read(&out, &[_]u8{20} ++ "hello"));
 
-    var rem = try read(&out, &[_]u8{5 << 1} ++ "hello");
-    try std.testing.expectEqual(0, rem.len);
+    var n = try read(&out, &[_]u8{5 << 1} ++ "hello");
+    try std.testing.expectEqual(6, n);
     try std.testing.expectEqualStrings("hello", out);
 
-    rem = try read(&out, &[_]u8{4 << 1} ++ "hello");
-    try std.testing.expectEqual(1, rem.len);
+    n = try read(&out, &[_]u8{4 << 1} ++ "hello");
+    try std.testing.expectEqual(5, n);
     try std.testing.expectEqualStrings("hell", out);
 
     var buf = [_]u8{ 3 << 1, 'D', 'O', 'G' };
-    rem = try read(&out, &buf);
-    try std.testing.expectEqual(0, rem.len);
+    n = try read(&out, &buf);
+    try std.testing.expectEqual(4, n);
     buf[2] = 'I';
     try std.testing.expectEqualStrings("DIG", out);
 }
