@@ -5,11 +5,22 @@ const boolean = @import("bool.zig");
 const reader = @import("reader.zig");
 const WriteError = @import("errors.zig").WriteError;
 
-pub fn writeWire(comptime T: type, v: *T, buf: []u8, schema_id: *[4]u8) ![]const u8 {
+pub fn writeWire(comptime T: type, v: *T, buf: []u8, schema_id: u32) ![]const u8 {
     _ = try number.writeInt(0, buf);
-    _ = try writeFixed(4, schema_id, buf[1..]);
+    std.mem.writeInt(u32, buf[1..5], schema_id, .big);
     const out = try write(T, v, buf[5..]);
     return buf[0..(5 + out.len)];
+}
+
+test "write schema id" {
+    var schema_id: [4]u8 = undefined;
+    std.mem.writeInt(u32, &schema_id, 300, .big);
+
+    try std.testing.expectEqualSlices(
+        u8,
+        &[_]u8{ 0x0, 0x0, 0x01, 0x2C },
+        &schema_id,
+    );
 }
 
 pub fn write(comptime T: type, v: *T, buf: []u8) ![]const u8 {
