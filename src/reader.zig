@@ -141,12 +141,12 @@ pub fn Array(comptime T: type) type {
                 } else if (blockItems < 0) {
                     blockItems = -blockItems;
                     n += try number.readLong(&blockBytesLength, buf[n..]);
-                    n += @bitCast(blockBytesLength);
+                    n += @intCast(blockBytesLength);
                 } else {
-                    for (0..@bitCast(blockItems)) |_|
+                    for (0..@intCast(blockItems)) |_|
                         n += try readAny(T, &self.item, buf[n..]);
                 }
-                self.len += @bitCast(blockItems);
+                self.len += @intCast(blockItems);
             }
         }
     };

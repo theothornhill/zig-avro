@@ -12,7 +12,7 @@ pub const ReadStringError = error{
 pub fn read(dst: *[]const u8, in: []const u8) !usize {
     var len_i64: i64 = 0;
     const n = try number.readLong(&len_i64, in);
-    const len: u64 = @intCast(len_i64);
+    const len: usize = @intCast(len_i64);
     if (in.len < len) {
         return ReadStringError.InvalidEOF;
     }
