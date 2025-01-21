@@ -33,15 +33,15 @@ pub fn write(comptime T: type, v: *T, buf: []u8) ![]const u8 {
         []const u8 => return try string.write(v.*, buf),
         else => {
             switch (@typeInfo(T)) {
-                .@"struct" => {
+                .Struct => {
                     if (@hasDecl(T, "next"))
                         return try writeArray(T, v, buf);
                     return try writeRecord(T, v, buf);
                 },
-                .@"enum" => return try writeEnum(T, v.*, buf),
-                .@"union" => return try writeUnion(T, v, buf),
-                .pointer => return try writeFixed(v.*.len, v.*, buf),
-                .optional => |opt| return try writeOptional(opt.child, v, buf),
+                .Enum => return try writeEnum(T, v.*, buf),
+                .Union => return try writeUnion(T, v, buf),
+                .Pointer => return try writeFixed(v.*.len, v.*, buf),
+                .Optional => |opt| return try writeOptional(opt.child, v, buf),
                 else => {},
             }
             @compileError("unsupported field type " ++ @typeName(T));
@@ -92,7 +92,7 @@ fn writeFixed(len: comptime_int, v: *[len]u8, buf: []u8) ![]const u8 {
 
 fn writeUnion(comptime U: type, u: *U, buf: []u8) ![]const u8 {
     const tagId: i32 = @intFromEnum(u.*);
-    inline for (@typeInfo(U).@"union".fields, 0..) |tag, id| {
+    inline for (@typeInfo(U).Union.fields, 0..) |tag, id| {
         if (tagId == id) {
             const wTag = try number.writeInt(tagId, buf);
             if (tag.type == void)
@@ -110,7 +110,7 @@ fn writeEnum(comptime E: type, e: E, buf: []u8) ![]const u8 {
 
 fn writeRecord(comptime R: type, r: *R, buf: []u8) ![]const u8 {
     var written: usize = 0;
-    inline for (@typeInfo(R).@"struct".fields) |field|
+    inline for (@typeInfo(R).Struct.fields) |field|
         written += (try write(field.type, &@field(r, field.name), buf[written..])).len;
     return buf[0..written];
 }

@@ -19,15 +19,15 @@ pub fn readAny(comptime T: type, v: *T, buf: []const u8) !usize {
         []const u8 => return try string.read(v, buf),
         else => {
             switch (@typeInfo(T)) {
-                .@"struct" => {
+                .Struct => {
                     if (@hasDecl(T, "readOwn"))
                         return (try v.readOwn(buf));
                     return try readRecord(T, v, buf);
                 },
-                .@"enum" => return try readEnum(T, v, buf),
-                .@"union" => return try readUnion(T, v, buf),
-                .pointer => return try readFixed(v.*.len, v, buf),
-                .optional => |opt| return try readOptional(opt.child, v, buf),
+                .Enum => return try readEnum(T, v, buf),
+                .Union => return try readUnion(T, v, buf),
+                .Pointer => return try readFixed(v.*.len, v, buf),
+                .Optional => |opt| return try readOptional(opt.child, v, buf),
                 else => {},
             }
             @compileError("unsupported field type " ++ @typeName(T));
@@ -64,7 +64,7 @@ fn readFixed(len: comptime_int, tgt: **[len]u8, buf: []const u8) !usize {
 
 fn readRecord(comptime R: type, r: *R, buf: []const u8) !usize {
     var n: usize = 0;
-    inline for (@typeInfo(R).@"struct".fields) |field|
+    inline for (@typeInfo(R).Struct.fields) |field|
         n += try readAny(field.type, &@field(r, field.name), buf[n..]);
     return n;
 }

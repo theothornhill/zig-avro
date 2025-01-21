@@ -48,7 +48,7 @@ pub fn Uleb128(comptime T: type) type {
 pub fn readUleb128(comptime T: type, buf: []const u8) !Uleb128(T) {
     const ShiftT = std.math.Log2Int(T);
 
-    const max_group = (@typeInfo(T).int.bits + 6) / 7;
+    const max_group = (@typeInfo(T).Int.bits + 6) / 7;
 
     var value: T = 0;
     var group: ShiftT = 0;
@@ -101,7 +101,7 @@ inline fn writeNumber(comptime T: type, value: T, buf: []u8) ![]const u8 {
         else => @compileError("supported types: i32, u32, i64, u64, usize, isize. Got " ++ @typeName(T)),
     };
     var stream = std.io.fixedBufferStream(buf);
-    leb.writeUleb128(
+    leb.writeULEB128(
         stream.writer(),
         zigZagEncode(U, @as(U, @bitCast(value))),
     ) catch |err| {
@@ -113,13 +113,13 @@ inline fn writeNumber(comptime T: type, value: T, buf: []u8) ![]const u8 {
 }
 
 inline fn zigZagEncode(comptime T: type, n: T) T {
-    comptime if (@typeInfo(T).int.signedness == std.builtin.Signedness.signed)
+    comptime if (@typeInfo(T).Int.signedness == std.builtin.Signedness.signed)
         @compileError("only works on unsigned integers");
     return if (@clz(n) == 0) ~(n << 1) else (n << 1);
 }
 
 inline fn zigZagDecode(comptime T: type, n: T) T {
-    comptime if (@typeInfo(T).int.signedness == std.builtin.Signedness.signed)
+    comptime if (@typeInfo(T).Int.signedness == std.builtin.Signedness.signed)
         @compileError("only works on unsigned integers");
     return if (n & 1 == 1) ~(n >> 1) else (n >> 1);
 }
@@ -199,23 +199,23 @@ test "write float and double" {
     try std.testing.expectEqualSlices(u8, res2, &buf2);
 }
 
-test "zig zag fuzz" {
-    const testFuncs = struct {
-        fn test64(input: []const u8) !void {
-            if (input.len < 8) return;
-            const blep: [8]u8 = input[0..8].*;
-            const n: u64 = std.mem.readInt(u64, &blep, std.builtin.Endian.big);
-            try std.testing.expectEqual(n, zigZagDecode(u64, zigZagEncode(u64, n)));
-        }
-        fn test32(input: []const u8) !void {
-            if (input.len < 4) return;
-            const blep: [4]u8 = input[0..4].*;
-            const n: u32 = std.mem.readInt(u32, &blep, std.builtin.Endian.big);
-            try std.testing.expectEqual(n, zigZagDecode(u32, zigZagEncode(u32, n)));
-        }
-    };
-    try std.testing.fuzz(testFuncs.test32, .{});
-}
+// test "zig zag fuzz" {
+//     const testFuncs = struct {
+//         fn test64(input: []const u8) !void {
+//             if (input.len < 8) return;
+//             const blep: [8]u8 = input[0..8].*;
+//             const n: u64 = std.mem.readInt(u64, &blep, std.builtin.Endian.big);
+//             try std.testing.expectEqual(n, zigZagDecode(u64, zigZagEncode(u64, n)));
+//         }
+//         fn test32(input: []const u8) !void {
+//             if (input.len < 4) return;
+//             const blep: [4]u8 = input[0..4].*;
+//             const n: u32 = std.mem.readInt(u32, &blep, std.builtin.Endian.big);
+//             try std.testing.expectEqual(n, zigZagDecode(u32, zigZagEncode(u32, n)));
+//         }
+//     };
+//     try std.testing.fuzz(testFuncs.test32, .{});
+// }
 
 test "read int and long" {
     var test_i32: i32 = 123;

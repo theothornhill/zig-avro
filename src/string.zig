@@ -21,7 +21,7 @@ pub fn read(dst: *[]const u8, in: []const u8) !usize {
 }
 
 test read {
-    var out: []u8 = &.{};
+    var out: []const u8 = &.{};
     try std.testing.expectError(ReadStringError.InvalidEOF, read(&out, &[_]u8{20} ++ "hello"));
 
     var n = try read(&out, &[_]u8{5 << 1} ++ "hello");
