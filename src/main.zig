@@ -35,28 +35,9 @@ pub const Incident = struct {
     properties: avro.Map([]const u8),
 };
 
-test "incident" {
-    var i: Incident = undefined;
-    _ = try avro.read(Incident, &i, payload[5..]);
 
-    try std.testing.expectEqualStrings("ba1826b3-8da4-5df5-9ba7-58db4c1a059a", i.id);
-    try std.testing.expectEqualStrings("8e5a8fb1-1c88-4d75-b1a3-9783f9f801ba", i.eventId);
-    try std.testing.expectEqualStrings("39ff76de-b0e7-4660-bb43-9d935a7cde87", i.participantId.?);
-    try std.testing.expectEqualStrings("708c2db5-c014-47ff-ad1d-b9f7eb7f2eb1", i.referencedParticipantId.?);
-
-    try std.testing.expectEqual(1253, i.elapsedTime.?);
-    try std.testing.expectEqual(6, i.sortOrder.?);
-    try std.testing.expectEqual(.UNDEFINED, i.incidentType); // I don't have the full enum yet
-    try std.testing.expect(!i.deleted);
-
-    try std.testing.expectEqual(1729365911699858977, i.tsAdminIn.?);
-    try std.testing.expectEqual(1729365911718795206, i.tsAdminOut.?);
-
-    while (try i.properties.next()) |val| {
-        if (std.mem.eql(u8, val.key, "ENETPULSE:player_name")) {
-            try std.testing.expectEqualStrings("Jannik Froewis", val.value);
-        }
-    }
+test {
+    @import("std").testing.refAllDecls(@This());
 }
 
 const payload = [_]u8{

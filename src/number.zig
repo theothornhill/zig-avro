@@ -48,7 +48,7 @@ pub fn Uleb128(comptime T: type) type {
 pub fn readUleb128(comptime T: type, buf: []const u8) !Uleb128(T) {
     const ShiftT = std.math.Log2Int(T);
 
-    const max_group = (@typeInfo(T).Int.bits + 6) / 7;
+    const max_group = (@typeInfo(T).int.bits + 6) / 7;
 
     var value: T = 0;
     var group: ShiftT = 0;
@@ -101,7 +101,7 @@ inline fn writeNumber(comptime T: type, value: T, buf: []u8) ![]const u8 {
         else => @compileError("supported types: i32, u32, i64, u64, usize, isize. Got " ++ @typeName(T)),
     };
     var stream = std.io.fixedBufferStream(buf);
-    leb.writeULEB128(
+    leb.writeUleb128(
         stream.writer(),
         zigZagEncode(U, @as(U, @bitCast(value))),
     ) catch |err| {
@@ -113,13 +113,13 @@ inline fn writeNumber(comptime T: type, value: T, buf: []u8) ![]const u8 {
 }
 
 inline fn zigZagEncode(comptime T: type, n: T) T {
-    comptime if (@typeInfo(T).Int.signedness == std.builtin.Signedness.signed)
+    comptime if (@typeInfo(T).int.signedness == std.builtin.Signedness.signed)
         @compileError("only works on unsigned integers");
     return if (@clz(n) == 0) ~(n << 1) else (n << 1);
 }
 
 inline fn zigZagDecode(comptime T: type, n: T) T {
-    comptime if (@typeInfo(T).Int.signedness == std.builtin.Signedness.signed)
+    comptime if (@typeInfo(T).int.signedness == std.builtin.Signedness.signed)
         @compileError("only works on unsigned integers");
     return if (n & 1 == 1) ~(n >> 1) else (n >> 1);
 }
