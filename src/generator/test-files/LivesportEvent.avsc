@@ -1,0 +1,53 @@
+{
+  "type": "record",
+  "name": "LivesportEvent",
+  "namespace": "no.tv2.rs.avro.livesport",
+  "fields": [
+    {
+      "name": "tv2_id",
+      "type": {
+        "type": "string",
+        "avro.java.string": "String"
+      }
+    },
+    {
+      "name": "home_score",
+      "type": "int",
+      "default": 0
+    },
+    {
+      "name": "away_score",
+      "type": "int",
+      "default": 0
+    },
+    {
+      "name": "minute",
+      "type": "int",
+      "default": 0
+    },
+    {
+      "name": "status",
+      "type": {
+        "type": "enum",
+        "name": "LivesportEventStatus",
+        "symbols": [
+          "INTERRUPTED",
+          "NOT_STARTED",
+          "CANCELLED",
+          "DELETED",
+          "FINISHED",
+          "UNKNOWN",
+          "IN_PROGRESS"
+        ]
+      },
+      "default": "UNKNOWN"
+    },
+    {
+      "name": "updated",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      }
+    }
+  ]
+}

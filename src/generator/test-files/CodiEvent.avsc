@@ -1,0 +1,260 @@
+{
+  "fields": [
+    {
+      "name": "tv2_id",
+      "type": {
+        "avro.java.string": "String",
+        "type": "string"
+      }
+    },
+    {
+      "name": "name",
+      "type": {
+        "avro.java.string": "String",
+        "type": "string"
+      }
+    },
+    {
+      "default": "UNKNOWN",
+      "name": "status",
+      "type": {
+        "doc": "The status of an event",
+        "name": "EventStatus",
+        "symbols": [
+          "INTERRUPTED",
+          "NOT_STARTED",
+          "CANCELLED",
+          "DELETED",
+          "FINISHED",
+          "UNKNOWN",
+          "IN_PROGRESS"
+        ],
+        "type": "enum"
+      }
+    },
+    {
+      "name": "tournamentTemplate",
+      "type": {
+        "fields": [
+          {
+            "name": "tv2_id",
+            "type": {
+              "avro.java.string": "String",
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "type": {
+              "avro.java.string": "String",
+              "type": "string"
+            }
+          }
+        ],
+        "name": "CodiTournamentTemplate",
+        "type": "record"
+      }
+    },
+    {
+      "name": "tournament",
+      "type": {
+        "fields": [
+          {
+            "name": "tv2_id",
+            "type": {
+              "avro.java.string": "String",
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "type": {
+              "avro.java.string": "String",
+              "type": "string"
+            }
+          },
+          {
+            "default": null,
+            "name": "className",
+            "type": [
+              "null",
+              {
+                "avro.java.string": "String",
+                "type": "string"
+              }
+            ]
+          }
+        ],
+        "name": "CodiTournament",
+        "type": "record"
+      }
+    },
+    {
+      "name": "tournamentStage",
+      "type": {
+        "fields": [
+          {
+            "name": "tv2_id",
+            "type": {
+              "avro.java.string": "String",
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "type": {
+              "avro.java.string": "String",
+              "type": "string"
+            }
+          },
+          {
+            "default": null,
+            "name": "orgName",
+            "type": [
+              "null",
+              {
+                "avro.java.string": "String",
+                "type": "string"
+              }
+            ]
+          }
+        ],
+        "name": "CodiTournamentStage",
+        "type": "record"
+      }
+    },
+    {
+      "default": "UNKNOWN",
+      "name": "sportType",
+      "type": {
+        "name": "SportType",
+        "symbols": [
+          "FOOTBALL",
+          "HANDBALL",
+          "ICE_HOCKEY",
+          "CYCLING",
+          "CHESS",
+          "VOLLEYBALL",
+          "BASKETBALL",
+          "FLOORBALL",
+          "ALPINE",
+          "NORDIC_COMBINED",
+          "CROSS_COUNTRY",
+          "SKI_JUMPING",
+          "BIATHLON",
+          "SHORT_TRACK_SPEED_SKATING",
+          "SKELETON",
+          "FREESTYLE_SKIING",
+          "SNOWBOARDING",
+          "BOBSLEIGH",
+          "FIGURE_SKATING",
+          "CURLING",
+          "CROSS_COUNTRY_SKIING",
+          "SPEED_SKATING",
+          "HARNESS_RACING",
+          "TENNIS",
+          "BADMINTON",
+          "ATHLETICS",
+          "FUNCTIONAL_FITNESS_AND_CROSSFIT",
+          "GYMNASTICS",
+          "MARTIAL_ARTS_BOXING",
+          "MARTIAL_ARTS_KARATE",
+          "MARTIAL_ARTS_MMA",
+          "MOTORSPORT",
+          "MOTORSPORT_BILCROSS",
+          "MOTORSPORT_CROSSCART",
+          "MOTORSPORT_DRAGRACE",
+          "MOTORSPORT_MOTOSPORT",
+          "MOTORSPORT_QUADCROSS",
+          "MOTORSPORT_RADIO",
+          "MOTORSPORT_RALLYCROSS",
+          "MOTORSPORT_ROADRACING",
+          "MOTORSPORT_SNOWSCOOTER",
+          "MOTORSPORT_TRIAL",
+          "PADEL",
+          "SWIMMING",
+          "OTHER",
+          "UNKNOWN"
+        ],
+        "type": "enum"
+      }
+    },
+    {
+      "default": null,
+      "name": "startDateTime",
+      "type": [
+        "null",
+        {
+          "logicalType": "timestamp-millis",
+          "type": "long"
+        }
+      ]
+    },
+    {
+      "default": [],
+      "name": "participants",
+      "type": {
+        "items": {
+          "fields": [
+            {
+              "name": "tv2_id",
+              "type": {
+                "avro.java.string": "String",
+                "type": "string"
+              }
+            },
+            {
+              "name": "name",
+              "type": {
+                "avro.java.string": "String",
+                "type": "string"
+              }
+            },
+            {
+              "default": "UNDEFINED",
+              "name": "type",
+              "type": {
+                "name": "ParticipantType",
+                "symbols": [
+                  "ATHLETE",
+                  "TEAM",
+                  "ORGANIZATION",
+                  "MANAGER",
+                  "ASSISTANT_MANAGER",
+                  "COACH",
+                  "ASSISTANT_COACH",
+                  "OFFICIAL",
+                  "HORSE",
+                  "UNDEFINED"
+                ],
+                "type": "enum"
+              }
+            }
+          ],
+          "name": "CodiEventParticipant",
+          "type": "record"
+        },
+        "type": "array"
+      }
+    },
+    {
+      "name": "deleted",
+      "type": "boolean"
+    },
+    {
+      "default": {},
+      "name": "externalIds",
+      "type": {
+        "avro.java.string": "String",
+        "type": "map",
+        "values": {
+          "avro.java.string": "String",
+          "type": "string"
+        }
+      }
+    }
+  ],
+  "name": "CodiEvent",
+  "namespace": "no.tv2.sport.resultatservice.avro",
+  "type": "record"
+}

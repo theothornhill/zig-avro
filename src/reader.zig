@@ -152,8 +152,8 @@ pub fn Array(comptime T: type) type {
     };
 }
 
-pub fn Map(comptime V: type) type {
-    const Entry = struct {
+pub fn Entry(comptime V: type) type {
+    return struct {
         key: []const u8 = undefined,
         value: V = undefined,
         pub fn readOwn(self: *@This(), buf: []const u8) !usize {
@@ -161,7 +161,10 @@ pub fn Map(comptime V: type) type {
             return n + try readAny(V, &self.value, buf[n..]);
         }
     };
-    return Array(Entry);
+}
+
+pub fn Map(comptime V: type) type {
+    return Array(Entry(V));
 }
 
 test "read array" {
