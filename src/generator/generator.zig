@@ -1,0 +1,559 @@
+const std = @import("std");
+const json = std.json;
+
+pub const Field = struct {
+    name: []const u8,
+    doc: ?[]const u8 = null,
+    type: *Schema,
+    order: ?[]const u8 = "ascending",
+    aliases: ?[][]const u8 = null,
+    default: ?json.Value = null,
+};
+
+pub const Record = struct {
+    name: []const u8,
+    namespace: ?[]const u8 = null,
+    doc: ?[]const u8 = null,
+    aliases: ?[][]const u8 = null,
+    fields: []Field,
+    default: ?json.Value = null,
+};
+
+pub const Enum = struct {
+    name: []const u8,
+    namespace: ?[]const u8 = null,
+    aliases: ?[][]const u8 = null,
+    doc: ?[]const u8 = null,
+    symbols: ?[][]const u8 = null,
+    default: ?json.Value = null,
+};
+
+pub const Array = struct {
+    items: *Schema,
+    default: ?[]*Schema = &.{},
+};
+
+pub const Map = struct {
+    values: *Schema,
+    default: ?json.Value = null,
+};
+
+pub const Fixed = struct {
+    name: []const u8,
+    namespace: ?[]const u8 = null,
+    aliases: ?[][]const u8 = null,
+    size: i32,
+};
+
+pub const SchemaType = enum {
+    record,
+    @"enum",
+    array,
+    map,
+    literal,
+    fixed,
+    @"union",
+};
+
+pub const Schema = union(SchemaType) {
+    record: Record,
+    @"enum": Enum,
+    array: Array,
+    map: Map,
+    literal: []const u8,
+    fixed: Fixed,
+
+    // Case for field unions for example, like in
+    // ```
+    // {
+    //   "name": "next",
+    //   "type": ["null", "LongList"],
+    //   "default": "null"
+    // }
+    // ```
+    @"union": []Schema,
+
+    pub fn jsonParse(allocator: std.mem.Allocator, source: anytype, options: std.json.ParseOptions) !Schema {
+        return jsonParseFromValue(allocator, switch (try source.peekNextTokenType()) {
+            .string => return .{ .literal = try std.json.innerParse([]const u8, allocator, source, options) },
+            .object_begin => try std.json.innerParse(json.Value, allocator, source, options),
+            else => return error.UnexpectedToken,
+        }, options);
+    }
+
+    pub fn jsonParseFromValue(allocator: std.mem.Allocator, source: json.Value, options: std.json.ParseOptions) !@This() {
+        if (source == .object) {
+            const kind = source.object.get("type") orelse return error.MissingField;
+            if (kind != .string) return error.UnexpectedToken;
+            const tag = std.meta.stringToEnum(SchemaType, kind.string) orelse .literal;
+            return switch (tag) {
+                .record => .{ .record = try std.json.parseFromValueLeaky(Record, allocator, source, options) },
+                .@"enum" => .{ .@"enum" = try std.json.parseFromValueLeaky(Enum, allocator, source, options) },
+                .array => .{ .array = try std.json.parseFromValueLeaky(Array, allocator, source, options) },
+                .map => .{ .map = try std.json.parseFromValueLeaky(Map, allocator, source, options) },
+                else => .{ .literal = kind.string },
+            };
+        }
+
+        if (source == .string) {
+            return .{ .literal = source.string };
+        }
+
+        if (source == .array) {
+            return .{ .@"union" = try std.json.parseFromValueLeaky([]Schema, allocator, source, options) };
+        }
+
+        return error.UnexpectedToken;
+    }
+};
+
+pub const parse_opts: json.ParseOptions = .{
+    .ignore_unknown_fields = true,
+    .allocate = .alloc_always,
+};
+
+test "parse schemas" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    const allocator = arena.allocator();
+    defer arena.deinit();
+
+    const test_files = comptime &[_][]const u8{
+        @embedFile("./test-files/SuperDuperSimple.avsc"),
+        @embedFile("./test-files/SuperSimple.avsc"),
+        @embedFile("./test-files/Simple.avsc"),
+        @embedFile("./test-files/Enum.avsc"),
+        @embedFile("./test-files/Array.avsc"),
+        @embedFile("./test-files/Map.avsc"),
+        @embedFile("./test-files/LivesportEvent.avsc"),
+        @embedFile("./test-files/CodiEvent.avsc"),
+        @embedFile("./test-files/EventLarge.avsc"),
+    };
+
+    for (test_files) |file| {
+        _ = try json.parseFromSlice(Schema, allocator, file, parse_opts);
+    }
+}
+
+test "verify schema" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    const allocator = arena.allocator();
+    defer arena.deinit();
+
+    const p = try json.parseFromSlice(
+        Schema,
+        allocator,
+        @embedFile("./test-files/Simple.avsc"),
+        parse_opts,
+    );
+    defer p.deinit();
+
+    const record = p.value.record;
+    try std.testing.expectEqual(2, record.fields.len);
+    try std.testing.expectEqualStrings("A linked list of longs", record.doc.?);
+    try std.testing.expectEqualStrings("LongList", record.name);
+    try std.testing.expectEqualStrings("some.namespace", record.namespace.?);
+}
+
+// --------------------------------------------------------------------------------
+
+pub fn IndentedValue(comptime T: type) type {
+    return struct {
+        t: T,
+        indent_level: usize,
+    };
+}
+
+pub const IndentOptions = struct {
+    add_newline_before: bool = true,
+    add_newline_after: bool = true,
+    indent_level: usize,
+};
+
+fn indent(writer: anytype, options: IndentOptions) !void {
+    if (options.add_newline_before) try writer.writeByte('\n');
+    const char: u8 = ' ';
+    const n_chars = 4 * options.indent_level;
+    try writer.writeByteNTimes(char, n_chars);
+    if (options.add_newline_after) try writer.writeByte('\n');
+}
+
+fn formatDefault(
+    data: ?json.Value,
+    comptime fmt: []const u8,
+    options: std.fmt.FormatOptions,
+    writer: anytype,
+) @TypeOf(writer).Error!void {
+    _ = fmt;
+    _ = options;
+    if (data) |d| {
+        // HACK(Theo): Pass more context in so we can determine whether or not
+        // to prefix with '.' in the case of a union.
+        try writer.print(" = {s}{s}", .{
+            if (d == .string) "." else "", switch (d) {
+                .string => |s| s,
+                .array => ".{}", // TODO(Theo): Deal with array with contents
+                .object => ".{}", // TODO(Theo): Deal with map with contents
+                .bool => "false",
+                else => "null",
+            },
+        });
+    }
+}
+
+fn fmtDefault(ty: ?json.Value) std.fmt.Formatter(formatDefault) {
+    return .{ .data = ty };
+}
+
+fn formatField(
+    data: IndentedValue(Field),
+    comptime fmt: []const u8,
+    options: std.fmt.FormatOptions,
+    writer: anytype,
+) @TypeOf(writer).Error!void {
+    _ = fmt;
+    _ = options;
+    try indent(writer, .{
+        .indent_level = data.indent_level,
+        .add_newline_after = false,
+        .add_newline_before = true,
+    });
+    try writer.print("{s}: {}{},", .{
+        // fmtDocs(data.t.doc, data.indent_level),
+        data.t.name,
+        fmtSchema(data.t.type.*, data.indent_level),
+        fmtDefault(data.t.default),
+    });
+}
+
+fn fmtField(ty: Field, indent_level: usize) std.fmt.Formatter(formatField) {
+    return .{ .data = .{ .t = ty, .indent_level = indent_level } };
+}
+
+fn formatFields(
+    data: IndentedValue([]Field),
+    comptime fmt: []const u8,
+    options: std.fmt.FormatOptions,
+    writer: anytype,
+) @TypeOf(writer).Error!void {
+    _ = fmt;
+    _ = options;
+    for (data.t) |f| {
+        try writer.print("{}", .{fmtField(f, data.indent_level)});
+    }
+}
+
+fn fmtFields(ty: []Field, indent_level: usize) std.fmt.Formatter(formatFields) {
+    return .{ .data = .{ .t = ty, .indent_level = indent_level } };
+}
+
+fn formatSymbol(
+    data: IndentedValue([]const u8),
+    comptime fmt: []const u8,
+    options: std.fmt.FormatOptions,
+    writer: anytype,
+) @TypeOf(writer).Error!void {
+    _ = fmt;
+    _ = options;
+    try indent(writer, .{
+        .indent_level = data.indent_level,
+        .add_newline_after = false,
+        .add_newline_before = true,
+    });
+    try writer.print("{s},", .{
+        data.t,
+    });
+}
+
+fn fmtSymbol(ty: []const u8, indent_level: usize) std.fmt.Formatter(formatSymbol) {
+    return .{ .data = .{ .t = ty, .indent_level = indent_level } };
+}
+
+fn formatSymbols(
+    data: IndentedValue(?[][]const u8),
+    comptime fmt: []const u8,
+    options: std.fmt.FormatOptions,
+    writer: anytype,
+) @TypeOf(writer).Error!void {
+    _ = fmt;
+    _ = options;
+    if (data.t) |t| {
+        for (t) |f| {
+            try writer.print("{}", .{fmtSymbol(f, data.indent_level)});
+        }
+    }
+}
+
+fn fmtSymbols(ty: ?[][]const u8, indent_level: usize) std.fmt.Formatter(formatSymbols) {
+    return .{ .data = .{ .t = ty, .indent_level = indent_level } };
+}
+
+fn formatDocs(
+    data: IndentedValue(?[]const u8),
+    comptime fmt: []const u8,
+    options: std.fmt.FormatOptions,
+    writer: anytype,
+) @TypeOf(writer).Error!void {
+    _ = options;
+    if (data.t) |text| {
+        try indent(writer, .{
+            .indent_level = data.indent_level,
+            .add_newline_after = false,
+            .add_newline_before = false,
+        });
+        if (fmt.len != 1) std.fmt.invalidFmtError(fmt, text);
+        const prefix = switch (fmt[0]) {
+            'n' => "// ",
+            'd' => "/// ",
+            '!' => "//! ",
+            else => std.fmt.invalidFmtError(fmt, text),
+        };
+        var iterator = std.mem.splitScalar(u8, text, '\n');
+        while (iterator.next()) |line| try writer.print("{s}{s}\n", .{ prefix, line });
+    }
+}
+
+fn fmtDocs(data: ?[]const u8, indent_level: usize) std.fmt.Formatter(formatDocs) {
+    return .{ .data = .{ .t = data, .indent_level = indent_level } };
+}
+
+test formatDocs {
+    const allocator = std.testing.allocator;
+    var arr = std.ArrayList(u8).init(allocator);
+    var writer = arr.writer();
+
+    defer arr.deinit();
+
+    try writer.print("{n}", .{fmtDocs("hello", 0)});
+    try std.testing.expectEqualStrings("// hello\n", arr.items);
+    arr.clearAndFree();
+
+    try writer.print("{d}", .{fmtDocs("hello", 0)});
+    try std.testing.expectEqualStrings("/// hello\n", arr.items);
+    arr.clearAndFree();
+
+    try writer.print("{d}", .{fmtDocs("This is a long\ndocstring", 0)});
+    try std.testing.expectEqualStrings("/// This is a long\n/// docstring\n", arr.items);
+    arr.clearAndFree();
+}
+
+fn formatSchema(
+    data: IndentedValue(Schema),
+    comptime fmt: []const u8,
+    options: std.fmt.FormatOptions,
+    writer: anytype,
+) @TypeOf(writer).Error!void {
+    _ = options;
+    _ = fmt;
+    switch (data.t) {
+        .record => |r| {
+            if (data.indent_level > 0) {
+                // Let's just reference the type when nested
+                return try writer.print("{p}", .{std.zig.fmtId(r.name)});
+            }
+            if (r.doc) |docs| try writer.print("{d}", .{fmtDocs(docs, data.indent_level)});
+            try writer.print("pub const {p} = struct {{{}\n}};\n\n", .{
+                std.zig.fmtId(r.name),
+                fmtFields(r.fields, data.indent_level + 1),
+            });
+        },
+        .@"enum" => |r| {
+            if (data.indent_level > 0) {
+                // Let's just reference the type when nested
+                return try writer.print("{p}", .{std.zig.fmtId(r.name)});
+            }
+            if (r.doc) |docs| try writer.print("{d}", .{fmtDocs(docs, data.indent_level)});
+            try writer.print("pub const {p} = enum {{{}\n}};\n\n", .{
+                std.zig.fmtId(r.name),
+                fmtSymbols(r.symbols, data.indent_level + 1),
+            });
+        },
+        .array => |a| {
+            if (data.indent_level > 0) {
+                return try writer.print("avro.Array({p})", .{fmtSchema(a.items.*, data.indent_level)});
+                // return try writer.print("{p}s", .{fmtSchema(a.items.*, data.indent_level)});
+            }
+        },
+        .map => |m| {
+            if (data.indent_level > 0) {
+                return try writer.print("avro.Map({p})", .{fmtSchema(m.values.*, data.indent_level)});
+            }
+        },
+        .literal => |l| {
+            const v =
+                if (std.mem.eql(u8, l, "long"))
+                    "i64"
+                else if (std.mem.eql(u8, l, "int"))
+                    "i32"
+                else if (std.mem.eql(u8, l, "null"))
+                    "null"
+                else if (std.mem.eql(u8, l, "string"))
+                    "[]const u8"
+                else if (std.mem.eql(u8, l, "bytes"))
+                    "[]u8"
+                else if (std.mem.eql(u8, l, "double"))
+                    "f64"
+                else if (std.mem.eql(u8, l, "float"))
+                    "f32"
+                else if (std.mem.eql(u8, l, "boolean"))
+                    "bool"
+                else
+                    l;
+
+            try writer.writeAll(v);
+        },
+        .@"union" => |un| {
+            if (un.len == 2) {
+                // An union of null|Something is considered a nullable, so we
+                // use that to our advantage;
+                const first = un[0];
+                if (first == .literal) {
+                    if (std.mem.eql(u8, first.literal, "null")) {
+                        return try writer.print("?{}", .{fmtSchema(un[1], data.indent_level)});
+                    }
+                }
+            }
+
+            try writer.writeAll("union(enum) { ");
+            for (un) |u| {
+                try writer.print("{}, ", .{fmtSchema(u, data.indent_level)});
+            }
+            try writer.writeAll("} ");
+        },
+        else => |_| {
+            // std.debug.print("hmm {} \n", .{e});
+        },
+    }
+}
+
+fn fmtSchema(data: Schema, indent_level: usize) std.fmt.Formatter(formatSchema) {
+    return .{ .data = .{ .t = data, .indent_level = indent_level } };
+}
+
+fn writeSchema(schema: Schema, map: *std.StringHashMap(Schema), writer: anytype) !void {
+    if (schema != .record) return error.NotARecord;
+
+    try writer.print("{!!}\n", .{
+        fmtDocs("This is a generated file - DO NOT EDIT!", 0),
+    });
+
+    try writer.print("const avro = @import(\"zig-avro\");\n\n", .{});
+
+    var it = map.iterator();
+    while (it.next()) |entry| {
+        try writer.print("{}", .{fmtSchema(entry.value_ptr.*, 0)});
+    }
+}
+
+fn put(map: *std.StringHashMap(Schema), schema: Schema) !void {
+    switch (schema) {
+        .record => |r| {
+            try map.put(r.name, schema);
+        },
+        .@"enum" => |e| {
+            try map.put(e.name, schema);
+        },
+        else => {},
+    }
+}
+
+fn accumulateSchemas(map: *std.StringHashMap(Schema), schema: Schema) !void {
+    switch (schema) {
+        .record => |r| {
+            for (r.fields) |*f| {
+                switch (f.type.*) {
+                    .array => {
+                        try put(map, f.type.*);
+                        if (f.type.*.array.items.* != .literal) {
+                            try put(map, f.type.*.array.items.*);
+                        }
+
+                        try accumulateSchemas(map, f.type.*.array.items.*);
+                    },
+                    .map => {
+                        try put(map, f.type.*);
+                        if (f.type.*.map.values.* != .literal) {
+                            try put(map, f.type.*.map.values.*);
+                        }
+
+                        try accumulateSchemas(map, f.type.*.map.values.*);
+                    },
+                    .@"enum" => {
+                        try put(map, f.type.*);
+                        try accumulateSchemas(map, f.type.*);
+                    },
+                    .record => {
+                        try put(map, f.type.*);
+                        try accumulateSchemas(map, f.type.*);
+                    },
+                    .@"union" => |vals| {
+                        for (vals) |v| {
+                            try put(map, v);
+                            try accumulateSchemas(map, v);
+                        }
+                    },
+                    else => continue,
+                }
+            }
+        },
+        .literal => {},
+        else => {
+            try put(map, schema);
+        },
+    }
+}
+
+pub fn main() !void {
+    // Let's be as stupid as we can at first. We accumulate all structs into a
+    // map and write all to one file. This must surely change at some point, but
+    // let's not make an issue of it. The reason we do it like this is that I
+    // didn't want to think about how to share say, enums across two types. We
+    // can do @enumFromInt(@intFromEnum(foo)) shenanigans, but I'd rather
+    // discover a better solution.
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    const allocator = arena.allocator();
+
+    const cwd = std.fs.cwd();
+
+    cwd.makeDir("src/avro") catch |err| switch (err) {
+        error.PathAlreadyExists => {},
+        else => {
+            std.debug.print("Failed: {}", .{err});
+            return err;
+        },
+    };
+
+    var dir = try cwd.openDir("avro", .{ .iterate = true });
+    var it = dir.iterate();
+
+    var map = std.StringHashMap(Schema).init(allocator);
+    defer map.deinit();
+
+    var main_schema: ?Schema = null;
+
+    while (it.next() catch null) |f| {
+        const path = try std.fmt.allocPrint(allocator, "avro/{s}", .{f.name});
+
+        const p = try json.parseFromSlice(
+            Schema,
+            allocator,
+            try cwd.readFileAlloc(allocator, path, 1_000_000),
+            parse_opts,
+        );
+
+        // Only allow Record as top level for now
+        if (p.value != .record) return error.InvalidSchema;
+
+        if (main_schema == null) {
+            main_schema = p.value;
+        }
+
+        try accumulateSchemas(&map, p.value);
+        try put(&map, p.value);
+    }
+
+    const out_path = "src/avro/types.zig";
+    var file = try cwd.createFile(out_path, .{});
+    defer file.close();
+
+    try writeSchema(main_schema orelse return error.InvalidSchema, &map, file.writer());
+}

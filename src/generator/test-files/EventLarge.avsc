@@ -1,0 +1,1325 @@
+{
+  "fields": [
+    {
+      "doc": "The RS id of this event",
+      "name": "id",
+      "type": {
+        "logicalType": "uuid",
+        "type": "string"
+      }
+    },
+    {
+      "default": null,
+      "doc": "The optional RS master_id of this event.\n* This would mean that one should traverse to the id in this field,\n* rather than using this value directly.",
+      "name": "masterId",
+      "type": [
+        "null",
+        {
+          "logicalType": "uuid",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "doc": "The name of the event",
+      "name": "name",
+      "type": {
+        "avro.java.string": "String",
+        "type": "string"
+      }
+    },
+    {
+      "default": "UNKNOWN",
+      "doc": "The sport type of this event",
+      "name": "sportType",
+      "type": {
+        "name": "SportType",
+        "symbols": [
+          "FOOTBALL",
+          "HANDBALL",
+          "ICE_HOCKEY",
+          "CYCLING",
+          "CHESS",
+          "VOLLEYBALL",
+          "BASKETBALL",
+          "FLOORBALL",
+          "ALPINE",
+          "NORDIC_COMBINED",
+          "CROSS_COUNTRY",
+          "SKI_JUMPING",
+          "BIATHLON",
+          "SHORT_TRACK_SPEED_SKATING",
+          "SKELETON",
+          "FREESTYLE_SKIING",
+          "SNOWBOARDING",
+          "BOBSLEIGH",
+          "FIGURE_SKATING",
+          "CURLING",
+          "CROSS_COUNTRY_SKIING",
+          "SPEED_SKATING",
+          "HARNESS_RACING",
+          "TENNIS",
+          "BADMINTON",
+          "ATHLETICS",
+          "FUNCTIONAL_FITNESS_AND_CROSSFIT",
+          "GYMNASTICS",
+          "MARTIAL_ARTS_BOXING",
+          "MARTIAL_ARTS_KARATE",
+          "MARTIAL_ARTS_MMA",
+          "MOTORSPORT",
+          "MOTORSPORT_BILCROSS",
+          "MOTORSPORT_CROSSCART",
+          "MOTORSPORT_DRAGRACE",
+          "MOTORSPORT_MOTOSPORT",
+          "MOTORSPORT_QUADCROSS",
+          "MOTORSPORT_RADIO",
+          "MOTORSPORT_RALLYCROSS",
+          "MOTORSPORT_ROADRACING",
+          "MOTORSPORT_SNOWSCOOTER",
+          "MOTORSPORT_TRIAL",
+          "PADEL",
+          "SWIMMING",
+          "OTHER",
+          "UNKNOWN"
+        ],
+        "type": "enum"
+      }
+    },
+    {
+      "doc": "The sport id of this event",
+      "name": "sportId",
+      "type": {
+        "logicalType": "uuid",
+        "type": "string"
+      }
+    },
+    {
+      "default": null,
+      "doc": "The round this match is related to",
+      "name": "round",
+      "type": [
+        "null",
+        {
+          "fields": [
+            {
+              "default": null,
+              "name": "number",
+              "type": [
+                "null",
+                "int"
+              ]
+            },
+            {
+              "name": "name",
+              "type": {
+                "avro.java.string": "String",
+                "type": "string"
+              }
+            }
+          ],
+          "name": "Round",
+          "type": "record"
+        }
+      ]
+    },
+    {
+      "default": null,
+      "doc": "The full tournament template this event belongs to",
+      "name": "tournamentTemplate",
+      "type": [
+        "null",
+        {
+          "fields": [
+            {
+              "name": "id",
+              "type": {
+                "logicalType": "uuid",
+                "type": "string"
+              }
+            },
+            {
+              "default": null,
+              "name": "masterId",
+              "type": [
+                "null",
+                {
+                  "logicalType": "uuid",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "default": "UNKNOWN",
+              "name": "sportType",
+              "type": "SportType"
+            },
+            {
+              "name": "sportId",
+              "type": {
+                "logicalType": "uuid",
+                "type": "string"
+              }
+            },
+            {
+              "name": "name",
+              "type": {
+                "avro.java.string": "String",
+                "type": "string"
+              }
+            },
+            {
+              "default": "UNDEFINED",
+              "name": "gender",
+              "type": {
+                "name": "Gender",
+                "symbols": [
+                  "MALE",
+                  "FEMALE",
+                  "UNDEFINED",
+                  "MIXED"
+                ],
+                "type": "enum"
+              }
+            },
+            {
+              "name": "priority",
+              "type": "int"
+            },
+            {
+              "default": [],
+              "name": "platforms",
+              "type": {
+                "items": {
+                  "avro.java.string": "String",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            {
+              "default": [],
+              "name": "images",
+              "type": {
+                "items": {
+                  "fields": [
+                    {
+                      "default": "UNKNOWN",
+                      "name": "type",
+                      "type": {
+                        "name": "ImageType",
+                        "symbols": [
+                          "ICON",
+                          "ICON_WITH_TEXT",
+                          "ICON_WITH_SHORT_TEXT",
+                          "PROFILE",
+                          "PROFILE_MOUNTAIN",
+                          "MAP",
+                          "UNKNOWN"
+                        ],
+                        "type": "enum"
+                      }
+                    },
+                    {
+                      "name": "url",
+                      "type": {
+                        "avro.java.string": "String",
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "name": "inverted",
+                      "type": "boolean"
+                    },
+                    {
+                      "default": null,
+                      "name": "width",
+                      "type": [
+                        "null",
+                        "int"
+                      ]
+                    },
+                    {
+                      "default": null,
+                      "name": "height",
+                      "type": [
+                        "null",
+                        "int"
+                      ]
+                    },
+                    {
+                      "default": "UNKNOWN",
+                      "name": "platform",
+                      "type": {
+                        "name": "PlatformType",
+                        "symbols": [
+                          "WEB",
+                          "APP",
+                          "TV",
+                          "UNKNOWN"
+                        ],
+                        "type": "enum"
+                      }
+                    },
+                    {
+                      "default": {},
+                      "name": "properties",
+                      "type": {
+                        "avro.java.string": "String",
+                        "type": "map",
+                        "values": {
+                          "avro.java.string": "String",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ],
+                  "name": "Image",
+                  "type": "record"
+                },
+                "type": "array"
+              }
+            },
+            {
+              "name": "deleted",
+              "type": "boolean"
+            },
+            {
+              "default": {},
+              "name": "properties",
+              "type": {
+                "avro.java.string": "String",
+                "type": "map",
+                "values": {
+                  "avro.java.string": "String",
+                  "type": "string"
+                }
+              }
+            }
+          ],
+          "name": "TournamentTemplateProjection",
+          "type": "record"
+        }
+      ]
+    },
+    {
+      "default": null,
+      "doc": "The full tournament this event belongs to",
+      "name": "tournament",
+      "type": [
+        "null",
+        {
+          "fields": [
+            {
+              "name": "id",
+              "type": {
+                "logicalType": "uuid",
+                "type": "string"
+              }
+            },
+            {
+              "default": null,
+              "name": "masterId",
+              "type": [
+                "null",
+                {
+                  "logicalType": "uuid",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "name": "name",
+              "type": {
+                "avro.java.string": "String",
+                "type": "string"
+              }
+            },
+            {
+              "default": "UNKNOWN",
+              "name": "sportType",
+              "type": "SportType"
+            },
+            {
+              "name": "sportId",
+              "type": {
+                "logicalType": "uuid",
+                "type": "string"
+              }
+            },
+            {
+              "name": "tournamentTemplateId",
+              "type": {
+                "logicalType": "uuid",
+                "type": "string"
+              }
+            },
+            {
+              "default": null,
+              "name": "startDate",
+              "type": [
+                "null",
+                {
+                  "logicalType": "timestamp-millis",
+                  "type": "long"
+                }
+              ]
+            },
+            {
+              "default": null,
+              "name": "endDate",
+              "type": [
+                "null",
+                {
+                  "logicalType": "timestamp-millis",
+                  "type": "long"
+                }
+              ]
+            },
+            {
+              "name": "priority",
+              "type": "int"
+            },
+            {
+              "name": "platforms",
+              "type": {
+                "items": {
+                  "avro.java.string": "String",
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            {
+              "default": [],
+              "name": "images",
+              "type": {
+                "items": "Image",
+                "type": "array"
+              }
+            },
+            {
+              "name": "active",
+              "type": "boolean"
+            },
+            {
+              "name": "deleted",
+              "type": "boolean"
+            },
+            {
+              "default": {},
+              "name": "properties",
+              "type": {
+                "avro.java.string": "String",
+                "type": "map",
+                "values": {
+                  "avro.java.string": "String",
+                  "type": "string"
+                }
+              }
+            }
+          ],
+          "name": "TournamentProjection",
+          "type": "record"
+        }
+      ]
+    },
+    {
+      "doc": "The full tournament stage this event belongs to",
+      "name": "tournamentStage",
+      "type": {
+        "fields": [
+          {
+            "name": "id",
+            "type": {
+              "logicalType": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "default": null,
+            "name": "masterId",
+            "type": [
+              "null",
+              {
+                "logicalType": "uuid",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "name",
+            "type": {
+              "avro.java.string": "String",
+              "type": "string"
+            }
+          },
+          {
+            "default": "UNKNOWN",
+            "name": "sportType",
+            "type": "SportType"
+          },
+          {
+            "name": "sportId",
+            "type": {
+              "logicalType": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "tournamentTemplateId",
+            "type": {
+              "logicalType": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "tournamentId",
+            "type": {
+              "logicalType": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "default": "UNDEFINED",
+            "name": "gender",
+            "type": "Gender"
+          },
+          {
+            "default": null,
+            "name": "countryId",
+            "type": [
+              "null",
+              {
+                "logicalType": "uuid",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "default": null,
+            "name": "startDate",
+            "type": [
+              "null",
+              {
+                "logicalType": "timestamp-millis",
+                "type": "long"
+              }
+            ]
+          },
+          {
+            "default": null,
+            "name": "endDate",
+            "type": [
+              "null",
+              {
+                "logicalType": "timestamp-millis",
+                "type": "long"
+              }
+            ]
+          },
+          {
+            "name": "priority",
+            "type": "int"
+          },
+          {
+            "default": [],
+            "name": "platforms",
+            "type": {
+              "items": {
+                "avro.java.string": "String",
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          {
+            "default": [],
+            "name": "images",
+            "type": {
+              "items": "Image",
+              "type": "array"
+            }
+          },
+          {
+            "name": "active",
+            "type": "boolean"
+          },
+          {
+            "name": "deleted",
+            "type": "boolean"
+          },
+          {
+            "default": {},
+            "name": "properties",
+            "type": {
+              "avro.java.string": "String",
+              "type": "map",
+              "values": {
+                "avro.java.string": "String",
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "name": "TournamentStageProjection",
+        "type": "record"
+      }
+    },
+    {
+      "default": null,
+      "doc": "The full venue where this event takes place",
+      "name": "venue",
+      "type": [
+        "null",
+        {
+          "fields": [
+            {
+              "name": "id",
+              "type": {
+                "logicalType": "uuid",
+                "type": "string"
+              }
+            },
+            {
+              "default": null,
+              "name": "masterId",
+              "type": [
+                "null",
+                {
+                  "logicalType": "uuid",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "name": "name",
+              "type": {
+                "avro.java.string": "String",
+                "type": "string"
+              }
+            },
+            {
+              "default": null,
+              "name": "countryId",
+              "type": [
+                "null",
+                {
+                  "logicalType": "uuid",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "default": [],
+              "name": "images",
+              "type": {
+                "items": "Image",
+                "type": "array"
+              }
+            },
+            {
+              "name": "deleted",
+              "type": "boolean"
+            },
+            {
+              "default": {},
+              "name": "properties",
+              "type": {
+                "avro.java.string": "String",
+                "type": "map",
+                "values": {
+                  "avro.java.string": "String",
+                  "type": "string"
+                }
+              }
+            }
+          ],
+          "name": "Venue",
+          "type": "record"
+        }
+      ]
+    },
+    {
+      "default": null,
+      "doc": "The optional id for the venue where this event takes place",
+      "name": "venueId",
+      "type": [
+        "null",
+        {
+          "logicalType": "uuid",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "doc": "Whether this venue on neutral ground or not",
+      "name": "venueNeutralGround",
+      "type": "boolean"
+    },
+    {
+      "doc": "The priority of this event",
+      "name": "priority",
+      "type": "int"
+    },
+    {
+      "doc": "The platforms in which this event is available",
+      "name": "platforms",
+      "type": {
+        "items": {
+          "avro.java.string": "String",
+          "type": "string"
+        },
+        "type": "array"
+      }
+    },
+    {
+      "default": null,
+      "doc": "The time of start of this event",
+      "name": "startDate",
+      "type": [
+        "null",
+        {
+          "logicalType": "date",
+          "type": "int"
+        }
+      ]
+    },
+    {
+      "default": null,
+      "doc": "The time of start of this event",
+      "name": "startDateTime",
+      "type": [
+        "null",
+        {
+          "logicalType": "timestamp-millis",
+          "type": "long"
+        }
+      ]
+    },
+    {
+      "default": "UNKNOWN",
+      "doc": "The event status",
+      "name": "status",
+      "type": {
+        "doc": "The status of an event",
+        "name": "EventStatus",
+        "symbols": [
+          "INTERRUPTED",
+          "NOT_STARTED",
+          "CANCELLED",
+          "DELETED",
+          "FINISHED",
+          "UNKNOWN",
+          "IN_PROGRESS"
+        ],
+        "type": "enum"
+      }
+    },
+    {
+      "default": "UNKNOWN",
+      "doc": "The description of the event status",
+      "name": "statusDescription",
+      "type": {
+        "name": "EventStatusDescription",
+        "symbols": [
+          "PLAYOFF_INTERRUPTED",
+          "ONE_OF_SIXTEENTH_ROUND_STARTED",
+          "ONE_OF_THIRTY_SECOND_ROUND_STARTED",
+          "ONE_OF_EIGHTH_ROUND_STARTED",
+          "FIRST_GAME_FINISHED",
+          "FIRST_GAME_STARTED",
+          "FIRST_INNING_FINISHED",
+          "FIRST_INNING_STARTED",
+          "FIRST_MAP_FINISHED",
+          "FIRST_MAP_STARTED",
+          "FIRST_PERIOD",
+          "FIRST_QUARTER",
+          "FIRST_QUARTER_FINISHED",
+          "FIRST_ROUND_FINISHED",
+          "FIRST_ROUND_INTERRUPTED",
+          "FIRST_ROUND_POSTPONED",
+          "FIRST_ROUND_STARTED",
+          "FIRST_SET",
+          "FIRST_HALF",
+          "SECOND_GAME_FINISHED",
+          "SECOND_GAME_STARTED",
+          "SECOND_INNING_STARTED",
+          "SECOND_MAP_FINISHED",
+          "SECOND_MAP_STARTED",
+          "SECOND_PERIOD",
+          "SECOND_QUARTER",
+          "SECOND_ROUND_FINISHED",
+          "SECOND_ROUND_INTERRUPTED",
+          "SECOND_ROUND_POSTPONED",
+          "SECOND_ROUND_STARTED",
+          "SECOND_SET",
+          "SECOND_HALF",
+          "THIRD_GAME_FINISHED",
+          "THIRD_GAME_STARTED",
+          "THIRD_MAP_FINISHED",
+          "THIRD_MAP_STARTED",
+          "THIRD_PERIOD",
+          "THIRD_QUARTER",
+          "THIRD_QUARTER_FINISHED",
+          "THIRD_ROUND_FINISHED",
+          "THIRD_ROUND_INTERRUPTED",
+          "THIRD_ROUND_POSTPONED",
+          "THIRD_ROUND_STARTED",
+          "THIRD_SET",
+          "FOURTH_GAME_FINISHED",
+          "FOURTH_GAME_STARTED",
+          "FOURTH_MAP_FINISHED",
+          "FOURTH_MAP_STARTED",
+          "FOURTH_QUARTER",
+          "FOURTH_ROUND_FINISHED",
+          "FOURTH_ROUND_INTERRUPTED",
+          "FOURTH_ROUND_POSTPONED",
+          "FOURTH_ROUND_STARTED",
+          "FOURTH_SET",
+          "FIFTH_GAME_STARTED",
+          "FIFTH_MAP_STARTED",
+          "FIFTH_ROUND_FINISHED",
+          "FIFTH_ROUND_INTERRUPTED",
+          "FIFTH_ROUND_POSTPONED",
+          "FIFTH_ROUND_STARTED",
+          "FIFTH_SET",
+          "SIXTH_ROUND_FINISHED",
+          "SIXTH_ROUND_INTERRUPTED",
+          "SIXTH_ROUND_POSTPONED",
+          "SIXTH_ROUND_STARTED",
+          "ABANDONED",
+          "ACTIVE",
+          "AWAITING_INFO",
+          "AWAITING_START",
+          "BOTTOM_FIRST",
+          "BOTTOM_SECOND",
+          "BOTTOM_THIRD",
+          "BOTTOM_FOURTH",
+          "BOTTOM_FIFTH",
+          "BOTTOM_SIXTH",
+          "BOTTOM_7TH",
+          "BOTTOM_8TH",
+          "BOTTOM_9TH",
+          "BOTTOM_EI",
+          "CANCELLED",
+          "CANCELLED_DRAW",
+          "INACTIVE",
+          "DELETED",
+          "DINNER_BREAK",
+          "END_FIRST",
+          "END_SECOND",
+          "END_THIRD",
+          "END_FOURTH",
+          "END_FIFTH",
+          "END_SIXTH",
+          "END_7TH",
+          "END_8TH",
+          "END_9TH",
+          "EXCLUDED",
+          "EXTRA_TIME",
+          "EXTRA_TIME_FIRST_HALF",
+          "FIRST_EXTRA_TIME_PERIOD",
+          "EXTRA_TIME_FIRST_HALF_SECOND_TIME",
+          "SECOND_EXTRA_TIME_PERIOD",
+          "EXTRA_TIME_SECOND_HALF",
+          "EXTRA_TIME_SECOND_HALF_SECOND_TIME",
+          "EXTRA_TIME_END_OF_FIRST_HALF",
+          "THIRD_EXTRA_TIME_PERIOD",
+          "FOURTH_EXTRA_TIME_PERIOD",
+          "FIFTH_EXTRA_TIME_PERIOD",
+          "SIXTH_EXTRA_TIME_PERIOD",
+          "SEVENTH_EXTRA_TIME_PERIOD",
+          "EIGTH_EXTRA_TIME_PERIOD",
+          "FINAL_ROUND_STARTED",
+          "FINISHED",
+          "FINISHED_AEI",
+          "FINISHED_AET",
+          "FINISHED_AGG",
+          "FINISHED_AGP",
+          "FINISHED_AGS",
+          "FINISHED_AP",
+          "FINISHED_ASD",
+          "FINISHED_ASG",
+          "FINISHED_OT",
+          "FINISHED_AFTER_AWARDED_WIN",
+          "FINISHED_AFTER_OVERTIME",
+          "FINISHED_AFTER_PLAYOFF",
+          "GOLDEN_GOAL_FIRST_HALF",
+          "GOLDEN_GOAL_SECOND_HALF",
+          "HALFTIME",
+          "HALVED",
+          "INTERRUPTED",
+          "KICK_OFF_DELAYED",
+          "LUNCH_BREAK",
+          "NOT_AVAILABLE",
+          "NO_INFO_YET",
+          "NOT_STARTED",
+          "OVERTIME",
+          "OVERTIME_FIRST_HALF",
+          "OVERTIME_SECOND_HALF",
+          "PAUSE",
+          "PENALTY",
+          "PICK_BAN",
+          "PLAYOFF_POSTPONED",
+          "PLAYOFF_STARTED",
+          "POSTPONED",
+          "QUARTERFINAL_ROUND_STARTED",
+          "SEMIFINAL_ROUND_STARTED",
+          "SILVER_GOAL_FIRST_HALF",
+          "SILVER_GOAL_SECOND_HALF",
+          "START_DELAYED",
+          "STARTED",
+          "STUMPS_DAY_1",
+          "STUMPS_DAY_2",
+          "STUMPS_DAY_3",
+          "STUMPS_DAY_4",
+          "STUMPS_DAY_5",
+          "SUDDEN_DEATH",
+          "TIMEOUT_AWAY_TEAM",
+          "TIMEOUT_HOME_TEAM",
+          "TO_FINISH",
+          "TOP_FIRST",
+          "TOP_SECOND",
+          "TOP_THIRD",
+          "TOP_FOURTH",
+          "TOP_FIFTH",
+          "TOP_SIXTH",
+          "TOP_7TH",
+          "TOP_8TH",
+          "TOP_9TH",
+          "TOP_EI",
+          "WAITING_FOR_OVERTIME",
+          "WAITING_FOR_PENALTY",
+          "WAITING_FOR_SILVER_GOAL",
+          "WAITING_FOR_EXTRA_TIME",
+          "WAITING_FOR_GOLDEN_GOAL",
+          "WITHDRAWN",
+          "UNKNOWN"
+        ],
+        "type": "enum"
+      }
+    },
+    {
+      "default": [],
+      "doc": "List of images related to this event",
+      "name": "images",
+      "type": {
+        "items": "Image",
+        "type": "array"
+      }
+    },
+    {
+      "default": [],
+      "doc": "List of programs related to this event",
+      "name": "programs",
+      "type": {
+        "items": {
+          "fields": [
+            {
+              "default": null,
+              "name": "assetId",
+              "type": [
+                "null",
+                {
+                  "avro.java.string": "String",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "default": null,
+              "name": "assetDuration",
+              "type": [
+                "null",
+                {
+                  "avro.java.string": "String",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "default": null,
+              "name": "channelName",
+              "type": [
+                "null",
+                {
+                  "avro.java.string": "String",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "default": null,
+              "name": "gpid",
+              "type": [
+                "null",
+                {
+                  "logicalType": "uuid",
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "default": null,
+              "name": "airTime",
+              "type": [
+                "null",
+                {
+                  "logicalType": "timestamp-millis",
+                  "type": "long"
+                }
+              ]
+            },
+            {
+              "name": "live",
+              "type": "boolean"
+            },
+            {
+              "default": "UNKNOWN",
+              "name": "channel",
+              "type": {
+                "name": "Channel",
+                "symbols": [
+                  "TV2",
+                  "TV2_SPORT_PREMIUM",
+                  "TV2_SPORT_PREMIUM_2",
+                  "TV2_SPORT_1",
+                  "TV2_SPORT_2",
+                  "TV2_ZEBRA",
+                  "TV2_SUMO",
+                  "TV2_PLAY",
+                  "TV2_LIVE",
+                  "UNKNOWN"
+                ],
+                "type": "enum"
+              }
+            },
+            {
+              "default": [],
+              "name": "channels",
+              "type": {
+                "items": "Channel",
+                "type": "array"
+              }
+            }
+          ],
+          "name": "ProgramInfo",
+          "type": "record"
+        },
+        "type": "array"
+      }
+    },
+    {
+      "default": [],
+      "doc": "List of participants related to this event",
+      "name": "participants",
+      "type": {
+        "items": {
+          "fields": [
+            {
+              "name": "id",
+              "type": {
+                "logicalType": "uuid",
+                "type": "string"
+              }
+            },
+            {
+              "name": "number",
+              "type": "int"
+            },
+            {
+              "name": "participant",
+              "type": {
+                "fields": [
+                  {
+                    "name": "id",
+                    "type": {
+                      "logicalType": "uuid",
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "default": null,
+                    "name": "masterId",
+                    "type": [
+                      "null",
+                      {
+                        "logicalType": "uuid",
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "name",
+                    "type": {
+                      "avro.java.string": "String",
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "default": "UNDEFINED",
+                    "name": "gender",
+                    "type": "Gender"
+                  },
+                  {
+                    "default": "UNDEFINED",
+                    "name": "type",
+                    "type": {
+                      "name": "ParticipantType",
+                      "symbols": [
+                        "ATHLETE",
+                        "TEAM",
+                        "ORGANIZATION",
+                        "MANAGER",
+                        "ASSISTANT_MANAGER",
+                        "COACH",
+                        "ASSISTANT_COACH",
+                        "OFFICIAL",
+                        "HORSE",
+                        "UNDEFINED"
+                      ],
+                      "type": "enum"
+                    }
+                  },
+                  {
+                    "default": null,
+                    "name": "country",
+                    "type": [
+                      "null",
+                      {
+                        "fields": [
+                          {
+                            "name": "id",
+                            "type": {
+                              "logicalType": "uuid",
+                              "type": "string"
+                            }
+                          },
+                          {
+                            "name": "name",
+                            "type": {
+                              "avro.java.string": "String",
+                              "type": "string"
+                            }
+                          },
+                          {
+                            "name": "images",
+                            "type": {
+                              "items": "Image",
+                              "type": "array"
+                            }
+                          }
+                        ],
+                        "name": "ParticipantCountry",
+                        "type": "record"
+                      }
+                    ]
+                  },
+                  {
+                    "default": [],
+                    "name": "images",
+                    "type": {
+                      "items": "Image",
+                      "type": "array"
+                    }
+                  },
+                  {
+                    "name": "toBeDecided",
+                    "type": "boolean"
+                  },
+                  {
+                    "name": "deleted",
+                    "type": "boolean"
+                  },
+                  {
+                    "default": {},
+                    "name": "properties",
+                    "type": {
+                      "avro.java.string": "String",
+                      "type": "map",
+                      "values": {
+                        "avro.java.string": "String",
+                        "type": "string"
+                      }
+                    }
+                  }
+                ],
+                "name": "ParticipantProjection",
+                "type": "record"
+              }
+            },
+            {
+              "default": false,
+              "name": "lineupConfirmed",
+              "type": "boolean"
+            },
+            {
+              "default": [],
+              "name": "results",
+              "type": {
+                "items": {
+                  "fields": [
+                    {
+                      "name": "value",
+                      "type": [
+                        "null",
+                        {
+                          "avro.java.string": "String",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    {
+                      "default": "UNKNOWN",
+                      "name": "resultType",
+                      "type": {
+                        "name": "ResultType",
+                        "symbols": [
+                          "ORDINARY_TIME",
+                          "EXTRA_TIME",
+                          "PENALTY_SHOOTOUT",
+                          "FINAL_RESULT",
+                          "HALFTIME",
+                          "RUNNING_SCORE",
+                          "STROKES_1ST_ROUND",
+                          "STROKES_2ND_ROUND",
+                          "STROKES_3RD_ROUND",
+                          "STROKES_4TH_ROUND",
+                          "STROKES_5TH_ROUND",
+                          "PAR",
+                          "POSITION",
+                          "MADE_CUT",
+                          "MATCH_PLAY_SCORE",
+                          "WEIGHT",
+                          "PERIOD_1",
+                          "PERIOD_2",
+                          "PERIOD_3",
+                          "PENALTY_SHOOTOUT_DEPRECATED",
+                          "QUARTER_1",
+                          "QUARTER_2",
+                          "QUARTER_3",
+                          "QUARTER_4",
+                          "SET_1",
+                          "SET_2",
+                          "SET_3",
+                          "SET_4",
+                          "SET_5",
+                          "WON_SETS",
+                          "TIEBREAK_1",
+                          "TIEBREAK_2",
+                          "TIEBREAK_3",
+                          "TIEBREAK_4",
+                          "TIEBREAK_5",
+                          "GAME_SCORE",
+                          "SET_6",
+                          "SET_7",
+                          "RANK",
+                          "DURATION",
+                          "POINTS",
+                          "DISTANCE",
+                          "COMMENT",
+                          "LAPS",
+                          "LAPS_BEHIND",
+                          "PITSTOPS",
+                          "INNING_1",
+                          "INNING_2",
+                          "INNING_3",
+                          "INNING_4",
+                          "INNING_5",
+                          "INNING_6",
+                          "INNING_7",
+                          "INNING_8",
+                          "INNING_9",
+                          "EXTRA_INNING",
+                          "HITS",
+                          "ERRORS",
+                          "MISSES",
+                          "HORSE_RACING_ODDS",
+                          "STARTNUMBER",
+                          "MEDAL",
+                          "MISSED_SHOTS",
+                          "ADDITIONAL_SHOTS",
+                          "TRIES",
+                          "FOUR_4S_POINTS",
+                          "SIX_6S_POINTS",
+                          "OVERS",
+                          "EXTRAS",
+                          "WICKETS",
+                          "SECOND_POINTS",
+                          "SECOND_OVERS",
+                          "SECOND_EXTRA",
+                          "SECOND_WICKETS",
+                          "SPEED",
+                          "JUMP_OFF_PENALTIES",
+                          "JUMP_OFF_TIME",
+                          "NET_POINTS",
+                          "DRAWNUMBER",
+                          "OFFICIAL_RATING",
+                          "FORM",
+                          "AGE",
+                          "FASTEST_LAP_POINT",
+                          "HANDICAP",
+                          "PLACE_WIN",
+                          "ALLOWANCE",
+                          "STROKES_POINTS_1ST_ROUND",
+                          "STROKES_POINTS_2ND_ROUND",
+                          "STROKES_POINTS_3RD_ROUND",
+                          "STROKES_POINTS_4TH_ROUND",
+                          "STROKES_POINTS_5TH_ROUND",
+                          "WINS",
+                          "RIDES",
+                          "BEST_TIME",
+                          "UNKNOWN"
+                        ],
+                        "type": "enum"
+                      }
+                    }
+                  ],
+                  "name": "Result",
+                  "type": "record"
+                },
+                "type": "array"
+              }
+            },
+            {
+              "default": {},
+              "name": "properties",
+              "type": {
+                "avro.java.string": "String",
+                "type": "map",
+                "values": {
+                  "avro.java.string": "String",
+                  "type": "string"
+                }
+              }
+            }
+          ],
+          "name": "EventParticipantsParticipant",
+          "type": "record"
+        },
+        "type": "array"
+      }
+    },
+    {
+      "doc": "Whether this event is deleted internally or to be considered as such",
+      "name": "deleted",
+      "type": "boolean"
+    },
+    {
+      "default": {},
+      "doc": "Map of assorted properties",
+      "name": "properties",
+      "type": {
+        "avro.java.string": "String",
+        "type": "map",
+        "values": {
+          "avro.java.string": "String",
+          "type": "string"
+        }
+      }
+    }
+  ],
+  "name": "EventLargeProjection",
+  "namespace": "no.tv2.sport.resultatservice.avro",
+  "type": "record"
+}

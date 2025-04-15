@@ -1,0 +1,43 @@
+{
+  "items": {
+    "fields": [
+      {
+        "name": "tv2_id",
+        "type": {
+          "avro.java.string": "String",
+          "type": "string"
+        }
+      },
+      {
+        "name": "name",
+        "type": {
+          "avro.java.string": "String",
+          "type": "string"
+        }
+      },
+      {
+        "default": "UNDEFINED",
+        "name": "type",
+        "type": {
+          "name": "ParticipantType",
+          "symbols": [
+            "ATHLETE",
+            "TEAM",
+            "ORGANIZATION",
+            "MANAGER",
+            "ASSISTANT_MANAGER",
+            "COACH",
+            "ASSISTANT_COACH",
+            "OFFICIAL",
+            "HORSE",
+            "UNDEFINED"
+          ],
+          "type": "enum"
+        }
+      }
+    ],
+    "name": "CodiEventParticipant",
+    "type": "record"
+  },
+  "type": "array"
+}

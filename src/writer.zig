@@ -4,6 +4,7 @@ const string = @import("string.zig");
 const boolean = @import("bool.zig");
 const reader = @import("reader.zig");
 const WriteError = @import("errors.zig").WriteError;
+const root = @import("root.zig");
 
 pub fn writeWire(comptime T: type, v: *T, buf: []u8, schema_id: u32) ![]const u8 {
     _ = try number.writeInt(0, buf);
@@ -34,8 +35,14 @@ pub fn write(comptime T: type, v: *T, buf: []u8) ![]const u8 {
         else => {
             switch (@typeInfo(T)) {
                 .@"struct" => {
-                    if (@hasDecl(T, "next"))
+                    if (@hasField(T, "iterator")) {
+                        var it = v.iterator orelse return error.ArrayTooShort;
+                        return try writeArray(@TypeOf(it), &it, buf);
+                    }
+                    if (@hasDecl(T, "next")) {
                         return try writeArray(T, v, buf);
+                    }
+
                     return try writeRecord(T, v, buf);
                 },
                 .@"enum" => return try writeEnum(T, v.*, buf),

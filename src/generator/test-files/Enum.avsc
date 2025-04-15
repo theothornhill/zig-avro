@@ -1,0 +1,16 @@
+{
+  "doc": "The status of an event",
+  "name": "EventStatus",
+  "symbols": [
+    "INTERRUPTED",
+    "NOT_STARTED",
+    "CANCELLED",
+    "DELETED",
+    "FINISHED",
+    "UNKNOWN",
+    "IN_PROGRESS"
+  ],
+  "type": "enum"
+} 
+
+
