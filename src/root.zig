@@ -5,6 +5,7 @@ const W = @import("writer.zig");
 
 pub const Reader = R;
 pub const Writer = W;
+pub const Generator = @import("generator/generator.zig");
 
 pub fn CreateIterator(
     comptime IteratorType: type,
