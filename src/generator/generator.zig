@@ -1,13 +1,62 @@
 const std = @import("std");
 const json = std.json;
 
+pub const Default = union(enum) {
+    none,
+    val: json.Value,
+
+    pub fn jsonParse(allocator: std.mem.Allocator, source: anytype, options: std.json.ParseOptions) !@This() {
+        const v = std.json.innerParse(json.Value, allocator, source, options) catch |err| switch (err) {
+            error.MissingField => return .none,
+            else => return err,
+        };
+
+        return try jsonParseFromValue(allocator, v, options);
+    }
+
+    pub fn jsonParseFromValue(_: std.mem.Allocator, source: json.Value, _: std.json.ParseOptions) !@This() {
+        return .{ .val = source };
+    }
+};
+
 pub const Field = struct {
     name: []const u8,
     doc: ?[]const u8 = null,
     type: *Schema,
     order: ?[]const u8 = "ascending",
     aliases: ?[][]const u8 = null,
-    default: ?json.Value = null,
+    default: Default = .none,
+
+    test "parse obj with null" {
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        const allocator = arena.allocator();
+        defer arena.deinit();
+
+        const js =
+            \\{
+            \\  "name": "id",
+            \\  "type": "string"
+            \\}
+        ;
+
+        const p = try json.parseFromSlice(Field, allocator, js, parse_opts);
+
+        try std.testing.expectEqualStrings(p.value.name, "id");
+        try std.testing.expect(p.value.default == .none);
+
+        const js2 =
+            \\{
+            \\  "name": "id",
+            \\  "type": "string",
+            \\  "default": null
+            \\}
+        ;
+
+        const p2 = try json.parseFromSlice(Field, allocator, js2, parse_opts);
+
+        try std.testing.expectEqualStrings(p2.value.name, "id");
+        try std.testing.expect(p2.value.default.val == .null);
+    }
 };
 
 pub const Record = struct {
@@ -16,7 +65,7 @@ pub const Record = struct {
     doc: ?[]const u8 = null,
     aliases: ?[][]const u8 = null,
     fields: []Field,
-    default: ?json.Value = null,
+    default: Default = .none,
 };
 
 pub const Enum = struct {
@@ -25,17 +74,17 @@ pub const Enum = struct {
     aliases: ?[][]const u8 = null,
     doc: ?[]const u8 = null,
     symbols: ?[][]const u8 = null,
-    default: ?json.Value = null,
+    default: Default = .none,
 };
 
 pub const Array = struct {
     items: *Schema,
-    default: ?[]*Schema = &.{},
+    default: Default = .none,
 };
 
 pub const Map = struct {
     values: *Schema,
-    default: ?json.Value = null,
+    default: Default = .none,
 };
 
 pub const Fixed = struct {
@@ -178,30 +227,59 @@ fn indent(writer: anytype, options: IndentOptions) !void {
 }
 
 fn formatDefault(
-    data: ?json.Value,
-    comptime fmt: []const u8,
-    options: std.fmt.FormatOptions,
+    data: struct { val: Default, ctx: Field },
+    comptime _: []const u8,
+    _: std.fmt.FormatOptions,
     writer: anytype,
 ) @TypeOf(writer).Error!void {
-    _ = fmt;
-    _ = options;
-    if (data) |d| {
-        // HACK(Theo): Pass more context in so we can determine whether or not
-        // to prefix with '.' in the case of a union.
-        try writer.print(" = {s}{s}", .{
-            if (d == .string) "." else "", switch (d) {
-                .string => |s| s,
+    if (data.val == .none) return;
+
+    if (data.ctx.default == .none) return;
+
+    var enum_prefix = switch (data.ctx.default.val) {
+        .null => "null",
+        .string => |s| if (std.mem.eql(u8, s, "null"))
+            "null"
+        else if (data.ctx.type.* == .@"enum")
+            try std.fmt.allocPrint(std.heap.page_allocator, ".{s}", .{s})
+        else
+            try std.fmt.allocPrint(std.heap.page_allocator, "\"{s}\"", .{s}),
+        else => null,
+    };
+
+    switch (data.ctx.type.*) {
+        .@"union" => |u| {
+            if (u.len > 2) {
+                if (std.mem.eql(u8, "null", u[0].literal)) {
+                    enum_prefix = try std.fmt.allocPrint(std.heap.page_allocator, ".{s}", .{u[0].literal});
+                }
+            }
+        },
+        else => {},
+    }
+
+    if (enum_prefix) |ep| {
+        const val = data.val;
+
+        if (val == .none) return;
+
+        try writer.print(" = {s}", .{
+            switch (val.val) {
+                .null => ep,
+                .string => ep,
                 .array => ".{}", // TODO(Theo): Deal with array with contents
                 .object => ".{}", // TODO(Theo): Deal with map with contents
                 .bool => "false",
+                .integer => "0",
+                .float => "0.0",
                 else => "null",
             },
         });
     }
 }
 
-fn fmtDefault(ty: ?json.Value) std.fmt.Formatter(formatDefault) {
-    return .{ .data = ty };
+fn fmtDefault(ty: Default, ctx: Field) std.fmt.Formatter(formatDefault) {
+    return .{ .data = .{ .val = ty, .ctx = ctx } };
 }
 
 fn formatField(
@@ -217,11 +295,12 @@ fn formatField(
         .add_newline_after = false,
         .add_newline_before = true,
     });
+
     try writer.print("{s}: {}{},", .{
         // fmtDocs(data.t.doc, data.indent_level),
         data.t.name,
         fmtSchema(data.t.type.*, data.indent_level),
-        fmtDefault(data.t.default),
+        fmtDefault(data.t.default, data.t),
     });
 }
 
