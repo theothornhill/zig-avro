@@ -176,6 +176,7 @@ test "parse schemas" {
         @embedFile("./test-files/LivesportEvent.avsc"),
         @embedFile("./test-files/CodiEvent.avsc"),
         @embedFile("./test-files/EventLarge.avsc"),
+        @embedFile("./test-files/Incident.avsc"),
     };
 
     for (test_files) |file| {
@@ -491,12 +492,23 @@ fn formatSchema(
                     }
                 }
             }
-
             try writer.writeAll("union(enum) { ");
             for (un) |u| {
-                try writer.print("{}, ", .{fmtSchema(u, data.indent_level)});
+                const name = switch (u) {
+                    .record => |r| r.name,
+                    .literal => |l| l,
+                    .@"enum" => |e| e.name,
+                    else => @panic("Unsupported name for union!"),
+                };
+
+                // Special case for the null value
+                if (std.mem.eql(u8, "null", name)) {
+                    try writer.writeAll("null, ");
+                    continue;
+                }
+                try writer.print("{s}: {}, ", .{ name, fmtSchema(u, data.indent_level) });
             }
-            try writer.writeAll("} ");
+            try writer.writeAll("}");
         },
         else => |_| {
             // std.debug.print("hmm {} \n", .{e});
@@ -506,6 +518,63 @@ fn formatSchema(
 
 fn fmtSchema(data: Schema, indent_level: usize) std.fmt.Formatter(formatSchema) {
     return .{ .data = .{ .t = data, .indent_level = indent_level } };
+}
+
+test "format union in schema" {
+    const allocator = std.testing.allocator;
+    const p = try json.parseFromSlice(
+        Schema,
+        allocator,
+        @embedFile("./test-files/Simple.avsc"),
+        parse_opts,
+    );
+    defer p.deinit();
+
+    var arr = std.ArrayList(u8).init(allocator);
+    var writer = arr.writer();
+
+    defer arr.deinit();
+
+    const expected =
+        \\/// A linked list of longs
+        \\pub const LongList = struct {
+        \\    value: i64,
+        \\    next: ?LongList = null,
+        \\};
+        \\
+        \\
+    ;
+
+    try writer.print("{n}", .{fmtSchema(p.value, 0)});
+    try std.testing.expectEqualStrings(expected, arr.items);
+}
+
+test "format more complex union in schema" {
+    const allocator = std.testing.allocator;
+    const p = try json.parseFromSlice(
+        Schema,
+        allocator,
+        @embedFile("./test-files/RecordWithUnion.avsc"),
+        parse_opts,
+    );
+    defer p.deinit();
+
+    var arr = std.ArrayList(u8).init(allocator);
+    var writer = arr.writer();
+
+    defer arr.deinit();
+
+    const expected =
+        \\/// A linked list of longs
+        \\pub const LongList = struct {
+        \\    next: union(enum) { null, LongList1: LongList1, LongList2: LongList2, } = .null,
+        \\};
+        \\
+        \\
+    ;
+
+    try writer.print("{n}", .{fmtSchema(p.value, 0)});
+    try std.testing.expectEqualStrings(expected, arr.items);
 }
 
 fn writeSchema(schema: Schema, map: *std.StringHashMap(Schema), writer: anytype) !void {
@@ -523,6 +592,42 @@ fn writeSchema(schema: Schema, map: *std.StringHashMap(Schema), writer: anytype)
     }
 }
 
+test writeSchema {
+    const allocator = std.testing.allocator;
+
+    const p = try json.parseFromSlice(
+        Schema,
+        allocator,
+        @embedFile("./test-files/Incident.avsc"),
+        parse_opts,
+    );
+    defer p.deinit();
+
+    var arr = std.ArrayList(u8).init(allocator);
+    var writer = arr.writer();
+
+    defer arr.deinit();
+
+    const expected = try std.fs.cwd().readFileAlloc(
+        allocator,
+        "./src/generator/test-files/IncidentTest.zig",
+        1_000_000,
+    );
+    defer allocator.free(expected);
+
+    var map = std.StringHashMap(Schema).init(allocator);
+    defer map.deinit();
+
+    try accumulateSchemas(&map, p.value);
+    try put(&map, p.value);
+
+    writeSchema(p.value, &map, &writer) catch |err| {
+        std.debug.print("\n\nERRRR {}\n\n", .{err});
+    };
+
+    try std.testing.expectEqualStrings(expected, arr.items);
+}
+
 fn put(map: *std.StringHashMap(Schema), schema: Schema) !void {
     switch (schema) {
         .record => |r| {
@@ -531,7 +636,19 @@ fn put(map: *std.StringHashMap(Schema), schema: Schema) !void {
         .@"enum" => |e| {
             try map.put(e.name, schema);
         },
-        else => {},
+        .@"union" => |un| {
+            for (un) |u| {
+                try put(map, u);
+            }
+        },
+        .array => |a| {
+            try put(map, a.items.*);
+        },
+        .map => |m| {
+            try put(map, m.values.*);
+        },
+        .literal => {},
+        else => @panic("Unreachable put branch. Unimplemented?"),
     }
 }
 
@@ -575,6 +692,12 @@ fn accumulateSchemas(map: *std.StringHashMap(Schema), schema: Schema) !void {
             }
         },
         .literal => {},
+        .@"union" => |un| {
+            for (un) |u| {
+                try put(map, u);
+                try accumulateSchemas(map, u);
+            }
+        },
         else => {
             try put(map, schema);
         },

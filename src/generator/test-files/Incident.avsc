@@ -1,0 +1,1020 @@
+{
+  "type": "record",
+  "name": "Incident",
+  "namespace": "no.tv2.sport.resultatservice.avro",
+  "fields": [
+    {
+      "name": "id",
+      "type": {
+        "type": "string",
+        "logicalType": "uuid"
+      }
+    },
+    {
+      "name": "masterId",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "logicalType": "uuid"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "eventId",
+      "type": {
+        "type": "string",
+        "logicalType": "uuid"
+      }
+    },
+    {
+      "name": "participantId",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "logicalType": "uuid"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "referencedParticipantId",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "logicalType": "uuid"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "sportType",
+      "type": {
+        "type": "enum",
+        "name": "SportType",
+        "symbols": [
+          "FOOTBALL",
+          "HANDBALL",
+          "ICE_HOCKEY",
+          "CYCLING",
+          "CHESS",
+          "VOLLEYBALL",
+          "BASKETBALL",
+          "FLOORBALL",
+          "ALPINE",
+          "NORDIC_COMBINED",
+          "CROSS_COUNTRY",
+          "SKI_JUMPING",
+          "BIATHLON",
+          "SHORT_TRACK_SPEED_SKATING",
+          "SKELETON",
+          "FREESTYLE_SKIING",
+          "SNOWBOARDING",
+          "BOBSLEIGH",
+          "FIGURE_SKATING",
+          "CURLING",
+          "CROSS_COUNTRY_SKIING",
+          "SPEED_SKATING",
+          "HARNESS_RACING",
+          "TENNIS",
+          "BADMINTON",
+          "ATHLETICS",
+          "FUNCTIONAL_FITNESS_AND_CROSSFIT",
+          "GYMNASTICS",
+          "MARTIAL_ARTS_BOXING",
+          "MARTIAL_ARTS_KARATE",
+          "MARTIAL_ARTS_MMA",
+          "MOTORSPORT",
+          "MOTORSPORT_BILCROSS",
+          "MOTORSPORT_CROSSCART",
+          "MOTORSPORT_DRAGRACE",
+          "MOTORSPORT_MOTOSPORT",
+          "MOTORSPORT_QUADCROSS",
+          "MOTORSPORT_RADIO",
+          "MOTORSPORT_RALLYCROSS",
+          "MOTORSPORT_ROADRACING",
+          "MOTORSPORT_SNOWSCOOTER",
+          "MOTORSPORT_TRIAL",
+          "PADEL",
+          "SWIMMING",
+          "OTHER",
+          "UNKNOWN"
+        ]
+      },
+      "default": "UNKNOWN"
+    },
+    {
+      "name": "sportSpecifics",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "FootballSpecifics",
+          "namespace": "no.tv2.sport.resultatservice.avro.incident.football",
+          "doc": "Specific information about a Football incident",
+          "fields": [
+            {
+              "name": "type",
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "Assist",
+                  "fields": [
+                    {
+                      "name": "typeName",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "default": "Assist"
+                    },
+                    {
+                      "name": "subType",
+                      "type": {
+                        "type": "enum",
+                        "name": "AssistType",
+                        "symbols": [
+                          "UNKNOWN"
+                        ]
+                      },
+                      "default": "UNKNOWN"
+                    }
+                  ]
+                },
+                {
+                  "type": "record",
+                  "name": "Booking",
+                  "fields": [
+                    {
+                      "name": "typeName",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "default": "Booking"
+                    },
+                    {
+                      "name": "subType",
+                      "type": {
+                        "type": "enum",
+                        "name": "BookingType",
+                        "symbols": [
+                          "YELLOW_CARD",
+                          "SECOND_YELLOW_CARD",
+                          "RED_CARD",
+                          "UNKNOWN"
+                        ]
+                      },
+                      "default": "UNKNOWN"
+                    }
+                  ]
+                },
+                {
+                  "type": "record",
+                  "name": "Chance",
+                  "fields": [
+                    {
+                      "name": "typeName",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "default": "Chance"
+                    },
+                    {
+                      "name": "subType",
+                      "type": {
+                        "type": "enum",
+                        "name": "ChanceType",
+                        "symbols": [
+                          "MISS",
+                          "UNKNOWN"
+                        ]
+                      },
+                      "default": "UNKNOWN"
+                    }
+                  ]
+                },
+                {
+                  "type": "record",
+                  "name": "DefensiveAct",
+                  "fields": [
+                    {
+                      "name": "typeName",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "default": "DefensiveAct"
+                    },
+                    {
+                      "name": "subType",
+                      "type": {
+                        "type": "enum",
+                        "name": "DefensiveActType",
+                        "symbols": [
+                          "UNKNOWN"
+                        ]
+                      },
+                      "default": "UNKNOWN"
+                    }
+                  ]
+                },
+                {
+                  "type": "record",
+                  "name": "Foul",
+                  "fields": [
+                    {
+                      "name": "typeName",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "default": "Foul"
+                    },
+                    {
+                      "name": "subType",
+                      "type": {
+                        "type": "enum",
+                        "name": "FoulType",
+                        "symbols": [
+                          "DANGEROUS_PLAY",
+                          "UNKNOWN"
+                        ]
+                      },
+                      "default": "UNKNOWN"
+                    }
+                  ]
+                },
+                {
+                  "type": "record",
+                  "name": "Goal",
+                  "fields": [
+                    {
+                      "name": "typeName",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "default": "Goal"
+                    },
+                    {
+                      "name": "subType",
+                      "type": {
+                        "type": "enum",
+                        "name": "GoalType",
+                        "symbols": [
+                          "REGULAR_GOAL",
+                          "UNKNOWN"
+                        ]
+                      },
+                      "default": "UNKNOWN"
+                    }
+                  ]
+                },
+                {
+                  "type": "record",
+                  "name": "Offside",
+                  "fields": [
+                    {
+                      "name": "typeName",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "default": "Offside"
+                    },
+                    {
+                      "name": "subType",
+                      "type": {
+                        "type": "enum",
+                        "name": "OffsideType",
+                        "symbols": [
+                          "UNKNOWN"
+                        ]
+                      },
+                      "default": "UNKNOWN"
+                    }
+                  ]
+                },
+                {
+                  "type": "record",
+                  "name": "PenaltyAwarded",
+                  "fields": [
+                    {
+                      "name": "typeName",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "default": "PenaltyAwarded"
+                    },
+                    {
+                      "name": "subType",
+                      "type": {
+                        "type": "enum",
+                        "name": "PenaltyAwardedType",
+                        "symbols": [
+                          "UNKNOWN"
+                        ]
+                      },
+                      "default": "UNKNOWN"
+                    }
+                  ]
+                },
+                {
+                  "type": "record",
+                  "name": "PenaltyShootout",
+                  "fields": [
+                    {
+                      "name": "typeName",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "default": "PenaltyShootout"
+                    },
+                    {
+                      "name": "subType",
+                      "type": {
+                        "type": "enum",
+                        "name": "PenaltyShootoutType",
+                        "symbols": [
+                          "UNKNOWN"
+                        ]
+                      },
+                      "default": "UNKNOWN"
+                    }
+                  ]
+                },
+                {
+                  "type": "record",
+                  "name": "PenaltyShot",
+                  "fields": [
+                    {
+                      "name": "typeName",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "default": "PenaltyShot"
+                    },
+                    {
+                      "name": "subType",
+                      "type": {
+                        "type": "enum",
+                        "name": "PenaltyShotType",
+                        "symbols": [
+                          "UNKNOWN"
+                        ]
+                      },
+                      "default": "UNKNOWN"
+                    }
+                  ]
+                },
+                {
+                  "type": "record",
+                  "name": "Save",
+                  "fields": [
+                    {
+                      "name": "typeName",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "default": "Save"
+                    },
+                    {
+                      "name": "subType",
+                      "type": {
+                        "type": "enum",
+                        "name": "SaveType",
+                        "symbols": [
+                          "UNKNOWN"
+                        ]
+                      },
+                      "default": "UNKNOWN"
+                    }
+                  ]
+                },
+                {
+                  "type": "record",
+                  "name": "SetPlay",
+                  "fields": [
+                    {
+                      "name": "typeName",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "default": "SetPlay"
+                    },
+                    {
+                      "name": "subType",
+                      "type": {
+                        "type": "enum",
+                        "name": "SetPlayType",
+                        "symbols": [
+                          "FREEKICK",
+                          "UNKNOWN"
+                        ]
+                      },
+                      "default": "UNKNOWN"
+                    }
+                  ]
+                },
+                {
+                  "type": "record",
+                  "name": "Skill",
+                  "fields": [
+                    {
+                      "name": "typeName",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "default": "Skill"
+                    },
+                    {
+                      "name": "subType",
+                      "type": {
+                        "type": "enum",
+                        "name": "SkillType",
+                        "symbols": [
+                          "DRIBBLE",
+                          "UNKNOWN"
+                        ]
+                      },
+                      "default": "UNKNOWN"
+                    }
+                  ]
+                },
+                {
+                  "type": "record",
+                  "name": "Var",
+                  "fields": [
+                    {
+                      "name": "typeName",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "default": "Var"
+                    },
+                    {
+                      "name": "subType",
+                      "type": {
+                        "type": "enum",
+                        "name": "VarType",
+                        "symbols": [
+                          "INITIATED",
+                          "CONCLUDED",
+                          "VAR_INCIDENT_GOAL_POSSIBLE_BALL_NOT_ACROSS_LINE",
+                          "VAR_RESULT_GOAL_POSSIBLE_BALL_NOT_ACROSS_LINE_GOAL_CONFIRMED",
+                          "VAR_RESULT_GOAL_POSSIBLE_BALL_NOT_ACROSS_LINE_GOAL_OVERRULED",
+                          "VAR_INCIDENT_GOAL_POSSIBLE_BALL_OUT_OF_PLAY",
+                          "VAR_RESULT_GOAL_POSSIBLE_BALL_OUT_OF_PLAY_GOAL_CONFIRMED",
+                          "VAR_RESULT_GOAL_POSSIBLE_BALL_OUT_OF_PLAY_GOAL_OVERRULED",
+                          "VAR_INCIDENT_GOAL_POSSIBLE_FAULT_ATTACK",
+                          "VAR_RESULT_GOAL_POSSIBLE_FAULT_ATTACK_GOAL_CONFIRMED",
+                          "VAR_RESULT_GOAL_POSSIBLE_FAULT_ATTACK_GOAL_OVERRULED",
+                          "VAR_INCIDENT_GOAL_POSSIBLE_OFFSIDE",
+                          "VAR_RESULT_GOAL_POSSIBLE_OFFSIDE_GOAL_CONFIRMED",
+                          "VAR_RESULT_GOAL_POSSIBLE_OFFSIDE_GOAL_OVERRULED",
+                          "VAR_INCIDENT_IDENTITY",
+                          "VAR_RESULT_CORRECT_IDENTITY",
+                          "VAR_RESULT_WRONG_IDENTITY_RED_CARD",
+                          "VAR_RESULT_WRONG_IDENTITY_YELLOW_CARD",
+                          "VAR_INCIDENT_PENALTY_EXECUTION",
+                          "VAR_RESULT_PENALTY_EXECUTION_GOAL_CONFIRMED",
+                          "VAR_RESULT_PENALTY_EXECUTION_GOAL_OVERRULED",
+                          "VAR_RESULT_PENALTY_EXECUTION_GOAL",
+                          "VAR_RESULT_PENALTY_EXECUTION_NOT_GOAL",
+                          "VAR_RESULT_PENALTY_EXECUTION_NEW_PENALTY",
+                          "VAR_INCIDENT_PENALTY_POSSIBLE_BALL_OUT_OF_PLAY",
+                          "VAR_RESULT_PENALTY_POSSIBLE_BALL_OUT_OF_PLAY_PENALTY_CONFIRMED",
+                          "VAR_RESULT_PENALTY_POSSIBLE_BALL_OUT_OF_PLAY_PENALTY_OVERRULED",
+                          "VAR_INCIDENT_PENALTY_POSSIBLE_FAULT_ATTACK",
+                          "VAR_RESULT_PENALTY_POSSIBLE_FAULT_ATTACK_PENALTY_CONFIRMED",
+                          "VAR_RESULT_PENALTY_POSSIBLE_FAULT_ATTACK_PENALTY_OVERRULED",
+                          "VAR_INCIDENT_PENALTY_POSSIBLE_FAULT_OUTSIDE_PENALTY_BOX",
+                          "VAR_RESULT_PENALTY_POSSIBLE_FAULT_OUTSIDE_PENALTY_BOX_PENALTY_CONFIRMED",
+                          "VAR_RESULT_PENALTY_POSSIBLE_FAULT_OUTSIDE_PENALTY_BOX_PENALTY_OVERRULED",
+                          "VAR_INCIDENT_PENALTY_POSSIBLE_NO_FAULT",
+                          "VAR_RESULT_PENALTY_POSSIBLE_NO_FAULT_PENALTY_CONFIRMED",
+                          "VAR_RESULT_PENALTY_POSSIBLE_NO_FAULT_PENALTY_OVERRULED",
+                          "VAR_INCIDENT_PENALTY_POSSIBLE_OFFSIDE",
+                          "VAR_RESULT_PENALTY_POSSIBLE_OFFSIDE_PENALTY_CONFIRMED",
+                          "VAR_RESULT_PENALTY_POSSIBLE_OFFSIDE_PENALTY_OVERRULED",
+                          "VAR_INCIDENT_POSSIBLE_PENALTY_POSSIBLE_BALL_OUT_OF_PLAY",
+                          "VAR_RESULT_POSSIBLE_PENALTY_POSSIBLE_BALL_OUT_OF_PLAY_PENALTY_CONFIRMED",
+                          "VAR_RESULT_POSSIBLE_PENALTY_POSSIBLE_BALL_OUT_OF_PLAY_PENALTY_OVERRULED",
+                          "VAR_INCIDENT_POSSIBLE_PENALTY_POSSIBLE_FAULT_ATTACK",
+                          "VAR_RESULT_POSSIBLE_PENALTY_POSSIBLE_FAULT_ATTACK_PENALTY_CONFIRMED",
+                          "VAR_RESULT_POSSIBLE_PENALTY_POSSIBLE_FAULT_ATTACK_PENALTY_OVERRULED",
+                          "VAR_INCIDENT_POSSIBLE_PENALTY_POSSIBLE_FAULT_OUTSIDE_PENALTY_BOX",
+                          "VAR_RESULT_POSSIBLE_PENALTY_POSSIBLE_FAULT_OUTSIDE_PENALTY_BOX_PENALTY_CONFIRMED",
+                          "VAR_RESULT_POSSIBLE_PENALTY_POSSIBLE_FAULT_OUTSIDE_PENALTY_BOX_PENALTY_OVERRULED",
+                          "VAR_INCIDENT_POSSIBLE_PENALTY_POSSIBLE_NO_FAULT",
+                          "VAR_RESULT_POSSIBLE_PENALTY_POSSIBLE_NO_FAULT_PENALTY_CONFIRMED",
+                          "VAR_RESULT_POSSIBLE_PENALTY_POSSIBLE_NO_FAULT_PENALTY_OVERRULED",
+                          "VAR_INCIDENT_POSSIBLE_PENALTY_POSSIBLE_OFFSIDE",
+                          "VAR_RESULT_POSSIBLE_PENALTY_POSSIBLE_OFFSIDE_PENALTY_CONFIRMED",
+                          "VAR_RESULT_POSSIBLE_PENALTY_POSSIBLE_OFFSIDE_PENALTY_OVERRULED",
+                          "VAR_INCIDENT_POSSIBLE_RED_CARD",
+                          "VAR_RESULT_POSSIBLE_RED_CARD_CONFIRMED",
+                          "VAR_RESULT_POSSIBLE_RED_CARD_OVERRULED",
+                          "VAR_INCIDENT_RED_CARD",
+                          "VAR_RESULT_RED_CARD_CONFIRMED",
+                          "VAR_RESULT_RED_CARD_OVERRULED",
+                          "VAR_CAN",
+                          "CELLED",
+                          "VAR_RESULT_CANCELLED",
+                          "VAR_NO_CHECK_GOAL",
+                          "VAR_NO_CHECK_GOAL_CONFIRMED",
+                          "UNKNOWN"
+                        ]
+                      },
+                      "default": "UNKNOWN"
+                    }
+                  ]
+                }
+              ],
+              "default": null
+            }
+          ]
+        },
+        {
+          "type": "record",
+          "name": "ChessSpecifics",
+          "namespace": "no.tv2.sport.resultatservice.avro.incident.chess",
+          "doc": "Specific information about a Chess incident",
+          "fields": [
+            {
+              "name": "type",
+              "type": [
+                "null",
+                {
+                  "type": "record",
+                  "name": "Move",
+                  "fields": [
+                    {
+                      "name": "typeName",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "default": "Move"
+                    },
+                    {
+                      "name": "halfMove",
+                      "type": "int",
+                      "doc": "Move 1 is white's first move, move 2 is black's first move, move 3 is white's second move and so on"
+                    },
+                    {
+                      "name": "LAN",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "doc": "Long Algebraic Notation"
+                    },
+                    {
+                      "name": "SAN",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "doc": "Short Algebraic Notation"
+                    },
+                    {
+                      "name": "FEN",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "doc": "The position, after the move, in Forsyth-Edwards Notation"
+                    }
+                  ]
+                },
+                {
+                  "type": "record",
+                  "name": "Clock",
+                  "fields": [
+                    {
+                      "name": "typeName",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "default": "Clock"
+                    },
+                    {
+                      "name": "halfMove",
+                      "type": "int",
+                      "doc": "Half move 1 is white's first move, 2 is black's first move, 3 is white's second move and so on"
+                    },
+                    {
+                      "name": "clock",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "doc": "HH:MM:ss"
+                    }
+                  ]
+                },
+                {
+                  "type": "record",
+                  "name": "Evaluation",
+                  "fields": [
+                    {
+                      "name": "typeName",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "default": "Evaluation"
+                    },
+                    {
+                      "name": "halfMove",
+                      "type": "int",
+                      "doc": "Move 1 is white's first move, move 2 is black's first move, move 3 is white's second move and so on"
+                    },
+                    {
+                      "name": "FEN",
+                      "type": {
+                        "type": "string",
+                        "avro.java.string": "String"
+                      },
+                      "doc": "The position in Forsyth-Edwards Notation"
+                    },
+                    {
+                      "name": "probabilities",
+                      "type": [
+                        "null",
+                        {
+                          "type": "record",
+                          "name": "Probabilities",
+                          "fields": [
+                            {
+                              "name": "white",
+                              "type": [
+                                "float",
+                                "int"
+                              ],
+                              "doc": "Chance of white winning the game"
+                            },
+                            {
+                              "name": "draw",
+                              "type": [
+                                "float",
+                                "int"
+                              ],
+                              "doc": "Chance of a draw"
+                            },
+                            {
+                              "name": "black",
+                              "type": [
+                                "float",
+                                "int"
+                              ],
+                              "doc": "Chance of black winning the game"
+                            }
+                          ]
+                        }
+                      ],
+                      "doc": "@deprecated moved to MoveScore",
+                      "default": null
+                    },
+                    {
+                      "name": "bestMoves",
+                      "type": [
+                        "null",
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "record",
+                            "name": "StockfishEvaluation",
+                            "doc": "@deprecated",
+                            "fields": [
+                              {
+                                "name": "pawnAdvantage",
+                                "type": "float"
+                              },
+                              {
+                                "name": "move",
+                                "type": {
+                                  "type": "string",
+                                  "avro.java.string": "String"
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      ],
+                      "doc": "@deprecated replaced by moves",
+                      "default": null
+                    },
+                    {
+                      "name": "moves",
+                      "type": {
+                        "type": "array",
+                        "items": {
+                          "type": "record",
+                          "name": "MoveScore",
+                          "fields": [
+                            {
+                              "name": "LAN",
+                              "type": {
+                                "type": "string",
+                                "avro.java.string": "String"
+                              },
+                              "doc": "Move in LAN"
+                            },
+                            {
+                              "name": "SAN",
+                              "type": {
+                                "type": "string",
+                                "avro.java.string": "String"
+                              },
+                              "doc": "Move in SAN"
+                            },
+                            {
+                              "name": "score",
+                              "type": "int",
+                              "doc": "Stockfish score. When type 'centipawn': 100 is is roughly 1 pawn.\nDivided by 100 this value is \"the arrow\".\nWhen type 'mate': the value denotes the number of remaining moves before checkmate.\nA positive value is in favour of white, negative in favour of black."
+                            },
+                            {
+                              "name": "type",
+                              "type": {
+                                "type": "enum",
+                                "name": "MoveScoreType",
+                                "symbols": [
+                                  "CENTIPAWN",
+                                  "MATE",
+                                  "UNDEFINED"
+                                ]
+                              },
+                              "doc": "Score type. CENTIPAWN for centipawns, MATE for mate in N moves"
+                            },
+                            {
+                              "name": "text",
+                              "type": {
+                                "type": "string",
+                                "avro.java.string": "String"
+                              },
+                              "doc": "Score as text. i.e. '+0.4', '-M7' etc."
+                            },
+                            {
+                              "name": "probabilities",
+                              "type": "Probabilities",
+                              "doc": "Outcome probabilities"
+                            }
+                          ]
+                        }
+                      },
+                      "doc": "Best moves, typically top 3, but may be less given position etc. Ordered best to worst.",
+                      "default": []
+                    },
+                    {
+                      "name": "ponderTimeMs",
+                      "type": "int",
+                      "doc": "Time in milliseconds Stockfish has thought about the position"
+                    }
+                  ]
+                }
+              ],
+              "default": null
+            }
+          ]
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "incidentType",
+      "type": {
+        "type": "enum",
+        "name": "IncidentType",
+        "symbols": [
+          "START_FIRST_PERIOD",
+          "END_FIRST_PERIOD",
+          "START_SECOND_PERIOD",
+          "END_SECOND_PERIOD",
+          "START_THIRD_PERIOD",
+          "END_THIRD_PERIOD",
+          "END_FIRST_EXTRA_TIME_PERIOD",
+          "END_SECOND_EXTRA_TIME_PERIOD",
+          "END_THIRD_EXTRA_TIME_PERIOD",
+          "END_FOURTH_EXTRA_TIME_PERIOD",
+          "END_FIFTH_EXTRA_TIME_PERIOD",
+          "END_SIXTH_EXTRA_TIME_PERIOD",
+          "END_SEVENTH_EXTRA_TIME_PERIOD",
+          "START_FIRST_EXTRA_TIME_PERIOD",
+          "START_SECOND_EXTRA_TIME_PERIOD",
+          "START_THIRD_EXTRA_TIME_PERIOD",
+          "START_FOURTH_EXTRA_TIME_PERIOD",
+          "START_FIFTH_EXTRA_TIME_PERIOD",
+          "START_SIXTH_EXTRA_TIME_PERIOD",
+          "START_SEVENTH_EXTRA_TIME_PERIOD",
+          "START_EIGHTH_EXTRA_TIME_PERIOD",
+          "EXPERT_COMMENT",
+          "COMMENT",
+          "LINEUP_READY",
+          "CORNER",
+          "SHOT",
+          "FIRST_HALF",
+          "HALF_TIME",
+          "SECOND_HALF",
+          "FULL_TIME",
+          "FIRST_HALF_EXTRA_TIME",
+          "SECOND_HALF_EXTRA_TIME",
+          "THIRD_HALF_EXTRA_TIME",
+          "FOURTH_HALF_EXTRA_TIME",
+          "PENALTIES_SHOOTOUT",
+          "FIRST_PERIOD",
+          "SECOND_PERIOD",
+          "THIRD_PERIOD",
+          "FOURTH_PERIOD",
+          "EXTRA_TIME",
+          "BREAK",
+          "FACE_OFF",
+          "TIMEOUT",
+          "TEN_MIN_SUSPENSION",
+          "TWO_MIN_BENCH_SUSPENSION",
+          "TWO_MIN_SUSPENSION",
+          "TWENTY_MIN_SUSPENSION",
+          "TWENTY_FIVE_MIN_SUSPENSION",
+          "FIVE_MIN_SUSPENSION",
+          "CANCELLED_CARD",
+          "DISQUALIFICATION",
+          "EXCLUSION",
+          "GAME_MISCONDUCT",
+          "MATCH_PENALTY",
+          "COINCIDENTAL_PENALTY",
+          "RED_CARD",
+          "YELLOW_CARD",
+          "BLUE_CARD",
+          "SECOND_YELLOW_CARD",
+          "DEFENSIVE_FOUL",
+          "OFFENSIVE_FOUL",
+          "UNSPORTMANLIKE_FOUL",
+          "TWO_POINT_CONVERSION",
+          "CANCELLED_GOAL",
+          "CANCELLED_MISSED_PENALTY",
+          "CANCELLED_PENALTY",
+          "CONVERSION",
+          "DEFENSIVE_TWO_POINT_CONVERSION",
+          "DROPKICK",
+          "EXTRA_POINT",
+          "EXTRA_TIME_CONVERSION",
+          "EXTRA_TIME_DROPKICK",
+          "EXTRA_TIME_PENALTY",
+          "EXTRA_TIME_PENALTY_TRY",
+          "EXTRA_TIME_TRY",
+          "EXTRA_TIME_GOAL",
+          "EXTRA_TIME_MISSED_PENALTY",
+          "EXTRA_TIME_OWN_GOAL",
+          "EXTRA_TIME_PENALTY_SCORED",
+          "FIELD_GOAL",
+          "GOLDEN_POINT_DROPKICK",
+          "GOLDEN_POINT_PENALTY",
+          "GOLDEN_POINT_TRY",
+          "MISSED_PENALTY",
+          "OFFSIDE",
+          "OWN_GOAL",
+          "PENALTY",
+          "PENALTY_TRY",
+          "PENALTY_TRY_CONVERSION",
+          "PENALTY_SHOOTOUT_MISSED",
+          "PENALTY_SHOOTOUT_SCORED",
+          "POWER_PLAY_GOAL",
+          "REGULAR_GOAL",
+          "SAFETY",
+          "SCORING_STATISTICS",
+          "SHORT_HANDED_GOAL",
+          "SINGLE_POINT",
+          "TOUCHDOWN",
+          "TRY",
+          "ASSIST",
+          "SECOND_ASSIST",
+          "ONE_POINT_GOAL",
+          "TWO_POINT_GOAL",
+          "THREE_POINT_GOAL",
+          "ONE_POINT_MISS",
+          "TWO_POINT_MISS",
+          "THREE_POINT_MISS",
+          "BLOCK",
+          "SUBSTITUTION_OUT",
+          "SUBSTITUTION_IN",
+          "SUBSTITUTION_GOALKEEPER_OUT",
+          "SUBSTITUTION_GOALKEEPER_IN",
+          "CLOCK_START",
+          "CLOCK_STOP",
+          "CLOCK_UPDATE",
+          "EVENT_START",
+          "EVENT_END",
+          "PERIOD_START",
+          "PERIOD_END",
+          "PRELIM_PERIOD_END",
+          "PRELIM_EVENT_END",
+          "VAR",
+          "FREE_KICK",
+          "INJURY",
+          "SUMMARY",
+          "TECHNICAL_FAULT",
+          "PENALTY_AWARDED",
+          "MISSED_SHOT",
+          "CHESS_MOVE",
+          "CHESS_CLOCK",
+          "CHESS_EVALUATION",
+          "UNKNOWN"
+        ]
+      },
+      "default": "UNKNOWN"
+    },
+    {
+      "name": "elapsedTime",
+      "type": [
+        "null",
+        "int"
+      ],
+      "default": null
+    },
+    {
+      "name": "sortOrder",
+      "type": [
+        "null",
+        "int"
+      ],
+      "default": null
+    },
+    {
+      "name": "deleted",
+      "type": "boolean",
+      "default": false
+    },
+    {
+      "name": "tsConnectorIn",
+      "type": [
+        "null",
+        "long"
+      ],
+      "default": null
+    },
+    {
+      "name": "tsConnectorOut",
+      "type": [
+        "null",
+        "long"
+      ],
+      "default": null
+    },
+    {
+      "name": "connectorId",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "tsAdminIn",
+      "type": [
+        "null",
+        "long"
+      ],
+      "doc": "Timestamp (Unix epoch in naoseconds)\n* Used for internal performance metrics.\n* As close as feasible to the instant the event starts\n* touching a network card in \"Admin\".",
+      "default": null
+    },
+    {
+      "name": "tsAdminOut",
+      "type": [
+        "null",
+        "long"
+      ],
+      "doc": "Timestamp (Unix epoch in naoseconds)\n* Used for internal performance metrics.\n* As close as feasible to the instant the event is sent\n* to the Kafka topic read by consumers of Resultatservice.",
+      "default": null
+    },
+    {
+      "name": "properties",
+      "type": {
+        "type": "map",
+        "values": {
+          "type": "string",
+          "avro.java.string": "String"
+        },
+        "avro.java.string": "String"
+      },
+      "default": {}
+    }
+  ]
+}

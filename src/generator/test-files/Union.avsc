@@ -1,0 +1,10 @@
+{
+  "type": "record",
+  "name": "LongList",
+  "aliases": ["LinkedLongs"],
+  "doc": "A linked list of longs",
+  "namespace": "some.namespace",
+  "fields" : [
+    {"name": "next", "type": ["LongList", "LongList"], "default": "null"}
+  ]
+}
