@@ -6,49 +6,59 @@ const reader = @import("reader.zig");
 const WriteError = @import("errors.zig").WriteError;
 const root = @import("root.zig");
 
-pub fn writeWire(comptime T: type, v: *T, buf: []u8, schema_id: u32) ![]const u8 {
-    _ = try number.writeInt(0, buf);
-    std.mem.writeInt(u32, buf[1..5], schema_id, .big);
-    const out = try write(T, v, buf[5..]);
-    return buf[0..(5 + out.len)];
+pub fn writeWire(comptime T: type, writer: anytype, v: *T, schema_id: u32) !usize {
+    const num_len = try number.writeInt(writer, 0);
+    try writer.writeInt(u32, schema_id, .big);
+    return num_len + 4 + try write(T, writer, v);
 }
 
-test "write schema id" {
-    var schema_id: [4]u8 = undefined;
-    std.mem.writeInt(u32, &schema_id, 300, .big);
+test "write wire" {
+    var buf: [200]u8 = undefined;
+    const schema_id: u32 = 300;
+    var fbs = std.io.fixedBufferStream(&buf);
+    var writer = fbs.writer();
 
+    const Foo = struct { foo: i32, bar: []const u8 };
+
+    var foo: Foo = .{ .bar = "rofl", .foo = 25 };
+
+    const written = try writeWire(Foo, &writer, &foo, schema_id);
+
+    try std.testing.expectEqual(11, written);
+    try std.testing.expectEqualStrings("rofl", buf[written - 4 .. written]);
     try std.testing.expectEqualSlices(
         u8,
-        &[_]u8{ 0x0, 0x0, 0x01, 0x2C },
-        &schema_id,
+        &[_]u8{ 0x0, 0x0, 0x0, 0x01, 0x2C, 0x32, 0x8, 0x72, 0x6F, 0x66, 0x6C },
+        buf[0..written],
     );
 }
 
-pub fn write(comptime T: type, v: *T, buf: []u8) ![]const u8 {
+pub fn write(comptime T: type, writer: anytype, v: *T) !usize {
     switch (T) {
-        bool => return try boolean.write(v.*, buf),
-        i32 => return try number.writeInt(v.*, buf),
-        i64 => return try number.writeLong(v.*, buf),
-        f32 => return try number.writeFloat(v.*, buf),
-        f64 => return try number.writeDouble(v.*, buf),
-        []const u8 => return try string.write(v.*, buf),
+        bool => return try boolean.write(writer, v.*),
+        i32 => return try number.writeInt(writer, v.*),
+        i64 => return try number.writeLong(writer, v.*),
+        f32 => return try number.writeFloat(writer, v.*),
+        f64 => return try number.writeDouble(writer, v.*),
+        []const u8 => return try string.write(writer, v.*),
         else => {
             switch (@typeInfo(T)) {
                 .@"struct" => {
                     if (@hasField(T, "iterator")) {
                         var it = v.iterator orelse return error.ArrayTooShort;
-                        return try writeArray(@TypeOf(it), &it, buf);
-                    }
-                    if (@hasDecl(T, "next")) {
-                        return try writeArray(T, v, buf);
+                        return try writeArray(@TypeOf(it), writer, &it);
                     }
 
-                    return try writeRecord(T, v, buf);
+                    if (@hasDecl(T, "next")) {
+                        return try writeArray(T, writer, v);
+                    }
+
+                    return try writeRecord(T, writer, v);
                 },
-                .@"enum" => return try writeEnum(T, v.*, buf),
-                .@"union" => return try writeUnion(T, v, buf),
-                .pointer => return try writeFixed(v.*.len, v.*, buf),
-                .optional => |opt| return try writeOptional(opt.child, v, buf),
+                .@"enum" => return try writeEnum(T, writer, v.*),
+                .@"union" => return try writeUnion(T, writer, v),
+                .pointer => return try writeFixed(v.*.len, writer, v.*),
+                .optional => |opt| return try writeOptional(opt.child, writer, v),
                 else => {},
             }
             @compileError("unsupported field type " ++ @typeName(T));
@@ -56,74 +66,72 @@ pub fn write(comptime T: type, v: *T, buf: []u8) ![]const u8 {
     }
 }
 
-fn writeArray(comptime A: type, a: *A, buf: []u8) ![]const u8 {
+fn writeArray(comptime A: type, writer: anytype, a: *A) !usize {
     var pos: usize = 0;
     if (@hasField(A, "len")) {
-        pos += (try number.writeLong(@as(i64, a.len), buf)).len;
+        pos += try number.writeLong(writer, @as(i64, a.len));
         var count: u64 = 0;
         while (try a.next()) |*val| {
             const V = @TypeOf(val.*);
             count += 1;
             if (count > a.len) return WriteError.ArrayTooLong;
-            pos += (try write(V, @constCast(val), buf[pos..])).len;
+            pos += try write(V, writer, @constCast(val));
         }
         if (count < a.len) return WriteError.ArrayTooShort;
     } else {
         while (try a.next()) |*val| {
             const V = @TypeOf(val.*);
-            pos += (try number.writeInt(1, buf[pos..])).len;
-            pos += (try write(V, @constCast(val), buf[pos..])).len;
+            pos += try number.writeInt(writer, 1);
+            pos += try write(V, writer, @constCast(val));
         }
     }
-    if (buf.len <= pos) return WriteError.UnexpectedEndOfBuffer;
-    buf[pos] = 0;
-    return buf[0 .. pos + 1];
+    try writer.writeByte(0);
+    return pos + 1;
 }
 
-fn writeOptional(comptime O: type, o: *?O, buf: []u8) ![]const u8 {
-    if (buf.len < 1) return WriteError.UnexpectedEndOfBuffer;
-    if (o.*) |v| {
-        buf[0] = 2;
-        const out = try write(O, @constCast(&v), buf[1..]);
-        return buf[0..(1 + out.len)];
+fn writeOptional(comptime O: type, writer: anytype, o: *?O) !usize {
+    if (o.*) |*v| {
+        try writer.writeByte(2);
+        return 1 + try write(O, writer, v);
     }
-    buf[0] = 0;
-    return buf[0..1];
+    try writer.writeByte(0);
+    return 1;
 }
 
-fn writeFixed(len: comptime_int, v: *[len]u8, buf: []u8) ![]const u8 {
-    if (buf.len < len) return WriteError.UnexpectedEndOfBuffer;
-    @memcpy(buf[0..len], v);
-    return buf[0..len];
+fn writeFixed(len: comptime_int, writer: anytype, v: *[len]u8) !usize {
+    return try writer.write(v);
 }
 
-fn writeUnion(comptime U: type, u: *U, buf: []u8) ![]const u8 {
+fn writeUnion(comptime U: type, writer: anytype, u: *U) !usize {
     const tagId: i32 = @intFromEnum(u.*);
     inline for (@typeInfo(U).@"union".fields, 0..) |tag, id| {
         if (tagId == id) {
-            const wTag = try number.writeInt(tagId, buf);
+            const wTag = try number.writeInt(writer, tagId);
             if (tag.type == void)
-                return buf[0..wTag.len];
-            const wVal = try write(tag.type, &@field(u, tag.name), buf[wTag.len..]);
-            return buf[0..(wTag.len + wVal.len)];
+                return wTag;
+            const wVal = try write(tag.type, writer, &@field(u, tag.name));
+            return wTag + wVal;
         }
     }
     unreachable;
 }
 
-fn writeEnum(comptime E: type, e: E, buf: []u8) ![]const u8 {
-    return try number.writeInt(@as(i32, @intFromEnum(e)), buf);
+fn writeEnum(comptime E: type, writer: anytype, e: E) !usize {
+    return try number.writeInt(writer, @as(i32, @intFromEnum(e)));
 }
 
-fn writeRecord(comptime R: type, r: *R, buf: []u8) ![]const u8 {
+fn writeRecord(comptime R: type, writer: anytype, r: *R) !usize {
     var written: usize = 0;
     inline for (@typeInfo(R).@"struct".fields) |field|
-        written += (try write(field.type, &@field(r, field.name), buf[written..])).len;
-    return buf[0..written];
+        written += try write(field.type, writer, &@field(r, field.name));
+    return written;
 }
 
 test "write array" {
     var writeBuffer: [100]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&writeBuffer);
+    var writer = fbs.writer();
+
     const Record = struct {
         list: struct {
             itemsLeft: u4,
@@ -136,12 +144,15 @@ test "write array" {
     };
     var r: Record = undefined;
     r.list.itemsLeft = 2;
-    const out = try write(Record, &r, writeBuffer[0..100]);
-    try std.testing.expectEqual(5, out.len);
+    const out = try write(Record, &writer, &r);
+    try std.testing.expectEqual(5, out);
 }
 
 test "write array with known length" {
-    var writeBuffer: [100]u8 = undefined;
+    var buf: [100]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    var writer = fbs.writer();
+
     const Record = struct {
         list: struct {
             len: u4,
@@ -156,33 +167,41 @@ test "write array with known length" {
     var r: Record = undefined;
     r.list.len = 2;
     r.list.yielded = 0;
-    const out = try write(Record, &r, writeBuffer[0..100]);
-    try std.testing.expectEqual(4, out.len);
+    const out = try write(Record, &writer, &r);
+    try std.testing.expectEqual(4, out);
 }
 
 test "write optional" {
     var writeBuffer: [100]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&writeBuffer);
+    var writer = fbs.writer();
+
     const Record = struct { troolean: ?bool };
     var r: Record = .{ .troolean = null };
-    const out = try write(Record, &r, writeBuffer[0..100]);
-    try std.testing.expectEqual(1, out.len);
-    try std.testing.expectEqual(0, out[0]);
+    var written = try write(Record, &writer, &r);
+    try std.testing.expectEqual(1, written);
+    try std.testing.expectEqual(0, writeBuffer[0]);
     r.troolean = true;
-    const out2 = try write(Record, &r, writeBuffer[0..100]);
-    try std.testing.expectEqual(2, out2.len);
-    try std.testing.expectEqual(2, out2[0]);
-    try std.testing.expectEqual(1, out2[1]);
+
+    fbs.reset();
+    written = try write(Record, &writer, &r);
+    try std.testing.expectEqual(2, written);
+    try std.testing.expectEqual(2, writeBuffer[0]);
+    try std.testing.expectEqual(1, writeBuffer[1]);
 }
 
 test "write fixed" {
     var writeBuffer: [100]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&writeBuffer);
+    var writer = fbs.writer();
+
     var txt: [7]u8 = undefined;
     @memcpy(&txt, "Bonjour");
     const Record = struct { fixed: *[7]u8 };
     var r: Record = .{ .fixed = &txt };
-    const out = try write(Record, &r, writeBuffer[0..100]);
-    try std.testing.expectEqual(7, out.len);
-    try std.testing.expectEqualStrings("Bonjour", (writeBuffer)[0..out.len]);
+    const out = try write(Record, &writer, &r);
+    try std.testing.expectEqual(7, out);
+    try std.testing.expectEqualStrings("Bonjour", (writeBuffer)[0..out]);
 }
 
 test "write record with union" {
@@ -194,19 +213,21 @@ test "write record with union" {
         measurement: Temperature,
     };
     var writeBuffer: [100]u8 = undefined;
-    var buf: []u8 = writeBuffer[0..100];
+    var fbs = std.io.fixedBufferStream(&writeBuffer);
+    var writer = fbs.writer();
+
     var r1: Record = .{
         .measurement = .unmeasured,
     };
-    const msg1 = try write(Record, &r1, buf);
+    _ = try write(Record, &writer, &r1);
     var r2: Record = .{
         .measurement = Temperature{ .celsius = 37.5 },
     };
-    _ = try write(Record, &r2, buf[msg1.len..]);
+    _ = try write(Record, &writer, &r2);
     var ro: Record = undefined;
-    const rem = try reader.read(Record, &ro, buf);
+    const rem = try reader.read(Record, &ro, &writeBuffer);
     try std.testing.expectEqual(r1, ro);
-    _ = try reader.read(Record, &ro, rem);
+    _ = try reader.read(Record, &ro, writeBuffer[rem..]);
     try std.testing.expectEqual(r2, ro);
 }
 
@@ -222,21 +243,24 @@ test "write record with enum" {
         cooler: Language,
     };
     var writeBuffer: [100]u8 = undefined;
-    var buf: []u8 = writeBuffer[0..100];
+    var fbs = std.io.fixedBufferStream(&writeBuffer);
+    var writer = fbs.writer();
+
     var r1: Record = .{
         .cool = .go,
         .cooler = .rust,
     };
-    const msg1 = try write(Record, &r1, buf);
+    _ = try write(Record, &writer, &r1);
+
     var r2: Record = .{
         .cool = .rust,
         .cooler = .zig,
     };
-    _ = try write(Record, &r2, buf[msg1.len..]);
+    _ = try write(Record, &writer, &r2);
     var ro: Record = undefined;
-    const rem = try reader.read(Record, &ro, buf);
+    const rem = try reader.read(Record, &ro, &writeBuffer);
     try std.testing.expectEqual(r1, ro);
-    _ = try reader.read(Record, &ro, rem);
+    _ = try reader.read(Record, &ro, writeBuffer[rem..]);
     try std.testing.expectEqual(r2, ro);
 }
 
@@ -248,8 +272,9 @@ test "write record of primitives" {
         width: f32,
         height: f64,
     };
-    var writeBuffer: [100]u8 = undefined;
-    var buf: []u8 = writeBuffer[0..100];
+    var buf: [100]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    var writer = fbs.writer();
     var r1: Record = .{
         .happy = true,
         .arms = 1_000_000,
@@ -257,7 +282,8 @@ test "write record of primitives" {
         .width = 5.5,
         .height = 93203291039213.9012,
     };
-    const msg1 = try write(Record, &r1, buf);
+    _ = try write(Record, &writer, &r1);
+
     var r2: Record = .{
         .happy = false,
         .arms = -2,
@@ -265,10 +291,10 @@ test "write record of primitives" {
         .width = -111111.11111,
         .height = 0.0,
     };
-    _ = try write(Record, &r2, buf[msg1.len..]);
+    _ = try write(Record, &writer, &r2);
     var ro: Record = undefined;
-    const rem = try reader.read(Record, &ro, buf);
+    const rem = try reader.read(Record, &ro, &buf);
     try std.testing.expectEqual(r1, ro);
-    _ = try reader.read(Record, &ro, rem);
+    _ = try reader.read(Record, &ro, buf[rem..]);
     try std.testing.expectEqual(r2, ro);
 }

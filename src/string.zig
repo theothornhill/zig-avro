@@ -1,6 +1,5 @@
 const number = @import("number.zig");
 const std = @import("std");
-const WriteError = @import("errors.zig").WriteError;
 
 pub const ReadStringError = error{
     InvalidEOF,
@@ -39,38 +38,39 @@ test read {
     try std.testing.expectEqualStrings("DIG", out);
 }
 
-/// Do bounds check on the buffer, then write contents to the buffer.
-///
-/// Returns error if buffer is too small.
-pub inline fn write(value: []const u8, buf: []u8) ![]const u8 {
-    const pos = (try number.writeLong(@intCast(value.len), buf)).len;
-    if (value.len > buf.len - pos) return WriteError.UnexpectedEndOfBuffer;
-    @memcpy(buf[pos .. pos + value.len], value);
-    return buf[0 .. pos + value.len];
+pub inline fn write(writer: anytype, value: []const u8) !usize {
+    const num_len = try number.writeLong(writer, @intCast(value.len));
+    const str_len = try writer.write(value);
+    return num_len + str_len;
 }
 
 test write {
     const res = "hi";
     var buf: [3]u8 = undefined;
-    const out = try write(res, &buf);
-    try std.testing.expectEqual(3, out.len);
-    try std.testing.expectEqualSlices(u8, res, buf[1..]);
+    var fbs = std.io.fixedBufferStream(&buf);
+    var writer = fbs.writer();
+
+    const out = try write(&writer, res);
+    try std.testing.expectEqual(3, out);
+    try std.testing.expectEqualStrings(res, buf[1..]);
+
 
     const res2 = "🤪🤑🤑🤑🤑";
-    var buf2: [2]u8 = undefined;
-    try std.testing.expectError(WriteError.UnexpectedEndOfBuffer, write(res2, &buf2));
-
-    const res3 = "🤪🤑🤑🤑🤑";
-    var buf3: [res3.len + 1]u8 = undefined;
-    const out3 = try write(res3, &buf3);
-    try std.testing.expectEqual(res3.len + 1, out3.len);
-    try std.testing.expectEqualSlices(u8, res3, buf3[1..]);
+    var buf2: [res2.len + 1]u8 = undefined;
+    var fbs2 = std.io.fixedBufferStream(&buf2);
+    var writer2 = fbs2.writer();
+    const out2 = try write(&writer2, res2);
+    try std.testing.expectEqual(res2.len + 1, out2);
+    try std.testing.expectEqualSlices(u8, res2, buf2[1..]);
 }
 
 test "can write then read" {
     var buf: [10]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    var writer = fbs.writer();
+
     const msg = "MEEP";
-    _ = try write(msg, &buf);
+    _ = try write(&writer, msg);
     var beb: []const u8 = undefined;
     _ = try read(&beb, &buf);
     try std.testing.expectEqualSlices(u8, msg, beb);

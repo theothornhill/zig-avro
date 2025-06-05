@@ -5,8 +5,7 @@ const string = @import("string.zig");
 const ReadError = @import("errors.zig").ReadError;
 
 pub fn read(comptime T: type, v: *T, buf: []const u8) ![]const u8 {
-    const n = try readAny(T, v, buf);
-    return buf[n..];
+    return buf[try readAny(T, v, buf)..];
 }
 
 pub fn readAny(comptime T: type, v: *T, buf: []const u8) !usize {

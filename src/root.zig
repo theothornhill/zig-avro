@@ -1,10 +1,8 @@
 const std = @import("std");
 
-const R = @import("reader.zig");
-const W = @import("writer.zig");
+pub const Reader = @import("reader.zig");
+pub const Writer = @import("writer.zig");
 
-pub const Reader = R;
-pub const Writer = W;
 pub const Generator = @import("generator/generator.zig");
 
 pub fn CreateIterator(
@@ -22,14 +20,14 @@ pub fn CreateIterator(
 
 pub fn Map(comptime T: type) type {
     return struct {
-        reader: R.Map(T) = .{},
-        iterator: ?Iterator(R.Entry(T)) = null,
+        reader: Reader.Map(T) = .{},
+        iterator: ?Iterator(Reader.Entry(T)) = null,
 
         pub fn readOwn(self: *@This(), buf: []const u8) !usize {
             return self.reader.readOwn(buf);
         }
 
-        pub fn next(self: *@This()) !?*R.Entry(T) {
+        pub fn next(self: *@This()) !?*Reader.Entry(T) {
             return try self.reader.next();
         }
     };
@@ -37,7 +35,7 @@ pub fn Map(comptime T: type) type {
 
 pub fn Array(comptime T: type) type {
     return struct {
-        reader: R.Array(T) = .{},
+        reader: Reader.Array(T) = .{},
         iterator: ?Iterator(T) = null,
 
         pub fn readOwn(self: *@This(), buf: []const u8) !usize {
