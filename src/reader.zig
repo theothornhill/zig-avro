@@ -2,13 +2,9 @@ const std = @import("std");
 const number = @import("number.zig");
 const boolean = @import("bool.zig");
 const string = @import("string.zig");
-const ReadError = @import("errors.zig").ReadError;
+pub const ReadError = @import("errors.zig").ReadError;
 
-pub fn read(comptime T: type, v: *T, buf: []const u8) ![]const u8 {
-    return buf[try readAny(T, v, buf)..];
-}
-
-pub fn readAny(comptime T: type, v: *T, buf: []const u8) !usize {
+pub fn read(comptime T: type, v: *T, buf: []const u8) !usize {
     switch (T) {
         bool => return try boolean.read(v, buf),
         i32 => return try number.readInt(v, buf),
@@ -43,7 +39,7 @@ pub fn readOptional(comptime T: type, v: *?T, buf: []const u8) !usize {
         return 1;
     }
     v.* = std.mem.zeroes(T);
-    return 1 + try readAny(T, &(v.*.?), buf[1..]);
+    return 1 + try read(T, &(v.*.?), buf[1..]);
 }
 
 fn readEnum(comptime E: type, e: *E, buf: []const u8) !usize {
@@ -63,8 +59,9 @@ fn readFixed(len: comptime_int, tgt: **[len]u8, buf: []const u8) !usize {
 
 fn readRecord(comptime R: type, r: *R, buf: []const u8) !usize {
     var n: usize = 0;
-    inline for (@typeInfo(R).@"struct".fields) |field|
-        n += try readAny(field.type, &@field(r, field.name), buf[n..]);
+    inline for (@typeInfo(R).@"struct".fields) |field| {
+        n += try read(field.type, &@field(r, field.name), buf[n..]);
+    }
     return n;
 }
 
@@ -76,7 +73,7 @@ fn readUnion(comptime U: type, u: *U, buf: []const u8) !usize {
             u.* = @unionInit(U, field.name, undefined);
             if (field.type == void)
                 return n;
-            return n + try readAny(field.type, &@field(u, field.name), buf[n..]);
+            return n + try read(field.type, &@field(u, field.name), buf[n..]);
         }
     }
     return ReadError.UnionIdOutOfBounds;
@@ -112,7 +109,7 @@ pub fn Array(comptime T: type) type {
                 return null;
             }
             self.currentBlockLen -= 1;
-            self.restBuf = self.restBuf[try readAny(T, &self.item, self.restBuf)..];
+            self.restBuf = self.restBuf[try read(T, &self.item, self.restBuf)..];
             return &self.item;
         }
         /// Prepares an iterator an returns buffer after end of array.
@@ -143,7 +140,7 @@ pub fn Array(comptime T: type) type {
                     n += @intCast(blockBytesLength);
                 } else {
                     for (0..@intCast(blockItems)) |_|
-                        n += try readAny(T, &self.item, buf[n..]);
+                        n += try read(T, &self.item, buf[n..]);
                 }
                 self.len += @intCast(blockItems);
             }
@@ -156,8 +153,8 @@ pub fn Entry(comptime V: type) type {
         key: []const u8 = undefined,
         value: V = undefined,
         pub fn readOwn(self: *@This(), buf: []const u8) !usize {
-            const n = try readAny([]const u8, &self.key, buf);
-            return n + try readAny(V, &self.value, buf[n..]);
+            const n = try read([]const u8, &self.key, buf);
+            return n + try read(V, &self.value, buf[n..]);
         }
     };
 }
@@ -197,7 +194,7 @@ test "2d array" {
         0, // rows end
     };
     const rem = try read(Array(Array(i32)), &a, buf);
-    try std.testing.expectEqual(0, rem.len);
+    try std.testing.expectEqual(10, rem);
     try std.testing.expectEqual(2, a.len);
     const row1 = (try a.next()).?;
     try std.testing.expectEqual(2, row1.len);
@@ -279,20 +276,20 @@ test "read record" {
         },
     };
     var r: Record = undefined;
-    var rem = try read(Record, &r, buf);
+    const num_read1 = try read(Record, &r, buf);
     try std.testing.expectEqual(null, r.valid);
     try std.testing.expectEqual(null, r.message);
     try std.testing.expectEqual(true, r.flags.?.logged);
     try std.testing.expectEqual(false, r.flags.?.terrible);
 
-    rem = try read(Record, &r, rem);
+    const num_read2 = try read(Record, &r, buf[10..]);
     try std.testing.expectEqual(-1, r.valid.?);
 
     try std.testing.expectEqualStrings("HI", r.message.?);
     try std.testing.expectEqual(null, r.flags);
     try std.testing.expectEqual(5, (try r.items.next()).?.*);
     try std.testing.expectEqual(2, r.onion.number);
-    try std.testing.expectEqual(0, rem.len);
+    try std.testing.expectEqual(22, num_read1 + num_read2);
 }
 
 test "read fixed" {
@@ -302,7 +299,7 @@ test "read fixed" {
     };
     var r: Record = undefined;
     const rem = try read(Record, &r, buf);
-    try std.testing.expectEqual(2, rem.len);
+    try std.testing.expectEqual(7, rem);
     try std.testing.expectEqualStrings("Bonjour", (r.fixed.*)[0..7]);
 }
 
@@ -315,8 +312,8 @@ test "assert fixed does not copy" {
         fixed: *[7]u8,
     };
     var r: Record = undefined;
-    const rem = try read(Record, &r, buf);
-    try std.testing.expectEqual(2, rem.len);
+    const num_read = try read(Record, &r, buf);
+    try std.testing.expectEqual(7, num_read);
     try std.testing.expectEqualStrings("Bonjour", (r.fixed.*)[0..7]);
     buf[3] = 's';
     buf[5] = 'i';
@@ -338,13 +335,13 @@ test "parse enum from avro" {
         4 << 1, // move
         3 << 1, // zig
     };
-    var rem = try read(Gabber, &e, buf);
+    const read1 = try read(Gabber, &e, buf);
     try std.testing.expectEqual(.move, e);
-    rem = try read(Gabber, &e, rem);
+    const read2 = try read(Gabber, &e, buf[1..]);
     try std.testing.expectEqual(.zig, e);
-    rem = try read(Gabber, &e, rem);
+    const read3 = try read(Gabber, &e, buf[2..]);
     try std.testing.expectEqual(.move, e);
-    rem = try read(Gabber, &e, rem);
+    const read4 = try read(Gabber, &e, buf[3..]);
     try std.testing.expectEqual(.zig, e);
-    try std.testing.expectEqual(0, rem.len);
+    try std.testing.expectEqual(4, read1 + read2 + read3 + read4);
 }

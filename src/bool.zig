@@ -1,19 +1,14 @@
 const std = @import("std");
 
-pub const ReadBoolError = error{
-    InvalidBool,
-    InvalidEOF,
-};
-
 pub fn read(dst: *bool, buf: []const u8) !usize {
     if (buf.len < 1) {
-        return ReadBoolError.InvalidEOF;
+        return error.UnexpectedEndOfBuffer;
     }
     const num = buf[0];
     dst.* = switch (num) {
         0 => false,
         1 => true,
-        else => return ReadBoolError.InvalidBool,
+        else => return error.IntegerOverflow,
     };
 
     return 1;
