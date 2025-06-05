@@ -244,7 +244,8 @@ fn formatDefault(
         else if (data.ctx.type.* == .@"enum")
             try std.fmt.allocPrint(std.heap.page_allocator, ".{s}", .{s})
         else
-            try std.fmt.allocPrint(std.heap.page_allocator, "\"{s}\"", .{s}),
+            try std.fmt.allocPrint(std.heap.page_allocator, ".{s}", .{s}),
+            // try std.fmt.allocPrint(std.heap.page_allocator, "\"{s}\"", .{s}),
         else => null,
     };
 
@@ -416,6 +417,25 @@ test formatDocs {
     arr.clearAndFree();
 }
 
+const reader =
+    \\    const Self = @This();
+    \\
+    \\    pub const ReadError = avro.Reader.ReadError || error{};
+    \\    pub const Reader = std.io.Reader(*Self, ReadError, read);
+    \\
+    \\    pub fn reader(self: *Self) Reader {
+    \\        return .{ .context = self };
+    \\    }
+    \\
+    \\    fn read(self: *Self, buf: []u8) !usize {
+    \\        return try avro.Reader.read(Self, self, buf);
+    \\    }
+    \\
+    \\    pub fn write(self: *Self, writer: anytype) !usize {
+    \\        return try avro.Writer.write(Self, writer, self);
+    \\    }
+;
+
 fn formatSchema(
     data: IndentedValue(Schema),
     comptime fmt: []const u8,
@@ -431,9 +451,11 @@ fn formatSchema(
                 return try writer.print("{p}", .{std.zig.fmtId(r.name)});
             }
             if (r.doc) |docs| try writer.print("{d}", .{fmtDocs(docs, data.indent_level)});
-            try writer.print("pub const {p} = struct {{{}\n}};\n\n", .{
+            const format = "pub const {p} = struct {{{}\n\n{s}\n}};\n\n";
+            try writer.print(format, .{
                 std.zig.fmtId(r.name),
                 fmtFields(r.fields, data.indent_level + 1),
+                reader,
             });
         },
         .@"enum" => |r| {
@@ -450,7 +472,6 @@ fn formatSchema(
         .array => |a| {
             if (data.indent_level > 0) {
                 return try writer.print("avro.Array({p})", .{fmtSchema(a.items.*, data.indent_level)});
-                // return try writer.print("{p}s", .{fmtSchema(a.items.*, data.indent_level)});
             }
         },
         .map => |m| {
@@ -535,11 +556,26 @@ test "format union in schema" {
 
     defer arr.deinit();
 
+
+
     const expected =
         \\/// A linked list of longs
         \\pub const LongList = struct {
         \\    value: i64,
         \\    next: ?LongList = null,
+        \\
+        \\    const Self = @This();
+        \\
+        \\    pub const ReadError = error{};
+        \\    pub const Reader = std.io.Reader(*Self, ReadError, read);
+        \\
+        \\    pub fn reader(self: *Self) Reader {
+        \\        return .{ .context = self };
+        \\    }
+        \\
+        \\    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        \\        return @errorCast(avro.Reader.read(Self, self, buf));
+        \\    }
         \\};
         \\
         \\
@@ -568,6 +604,19 @@ test "format more complex union in schema" {
         \\/// A linked list of longs
         \\pub const LongList = struct {
         \\    next: union(enum) { null, LongList1: LongList1, LongList2: LongList2, } = .null,
+        \\
+        \\    const Self = @This();
+        \\
+        \\    pub const ReadError = error{};
+        \\    pub const Reader = std.io.Reader(*Self, ReadError, read);
+        \\
+        \\    pub fn reader(self: *Self) Reader {
+        \\        return .{ .context = self };
+        \\    }
+        \\
+        \\    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        \\        return @errorCast(avro.Reader.read(Self, self, buf));
+        \\    }
         \\};
         \\
         \\
@@ -584,6 +633,7 @@ fn writeSchema(schema: Schema, map: *std.StringHashMap(Schema), writer: anytype)
         fmtDocs("This is a generated file - DO NOT EDIT!", 0),
     });
 
+    try writer.print("const std = @import(\"std\");\n", .{});
     try writer.print("const avro = @import(\"zig-avro\");\n\n", .{});
 
     var it = map.iterator();

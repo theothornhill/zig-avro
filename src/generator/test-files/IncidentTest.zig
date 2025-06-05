@@ -1,37 +1,116 @@
 //! This is a generated file - DO NOT EDIT!
 
+const std = @import("std");
 const avro = @import("zig-avro");
 
 /// Specific information about a Chess incident
 pub const ChessSpecifics = struct {
     type: union(enum) { null, Move: Move, Clock: Clock, Evaluation: Evaluation, } = .null,
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const Probabilities = struct {
     white: union(enum) { float: f32, int: i32, },
     draw: union(enum) { float: f32, int: i32, },
     black: union(enum) { float: f32, int: i32, },
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const Goal = struct {
-    typeName: []const u8 = "Goal",
+    typeName: []const u8 = .Goal,
     subType: GoalType = .UNKNOWN,
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const SetPlay = struct {
-    typeName: []const u8 = "SetPlay",
+    typeName: []const u8 = .SetPlay,
     subType: SetPlayType = .UNKNOWN,
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const Chance = struct {
-    typeName: []const u8 = "Chance",
+    typeName: []const u8 = .Chance,
     subType: ChanceType = .UNKNOWN,
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 /// @deprecated
 pub const StockfishEvaluation = struct {
     pawnAdvantage: f32,
     move: []const u8,
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const SetPlayType = enum {
@@ -40,8 +119,21 @@ pub const SetPlayType = enum {
 };
 
 pub const Var = struct {
-    typeName: []const u8 = "Var",
+    typeName: []const u8 = .Var,
     subType: VarType = .UNKNOWN,
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const PenaltyShotType = enum {
@@ -51,6 +143,19 @@ pub const PenaltyShotType = enum {
 /// Specific information about a Football incident
 pub const FootballSpecifics = struct {
     type: union(enum) { null, Assist: Assist, Booking: Booking, Chance: Chance, DefensiveAct: DefensiveAct, Foul: Foul, Goal: Goal, Offside: Offside, PenaltyAwarded: PenaltyAwarded, PenaltyShootout: PenaltyShootout, PenaltyShot: PenaltyShot, Save: Save, SetPlay: SetPlay, Skill: Skill, Var: Var, } = .null,
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const PenaltyShootoutType = enum {
@@ -73,9 +178,22 @@ pub const SaveType = enum {
 };
 
 pub const Clock = struct {
-    typeName: []const u8 = "Clock",
+    typeName: []const u8 = .Clock,
     halfMove: i32,
     clock: []const u8,
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const MoveScore = struct {
@@ -85,6 +203,19 @@ pub const MoveScore = struct {
     type: MoveScoreType,
     text: []const u8,
     probabilities: Probabilities,
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const SportType = enum {
@@ -137,13 +268,39 @@ pub const SportType = enum {
 };
 
 pub const Booking = struct {
-    typeName: []const u8 = "Booking",
+    typeName: []const u8 = .Booking,
     subType: BookingType = .UNKNOWN,
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const Save = struct {
-    typeName: []const u8 = "Save",
+    typeName: []const u8 = .Save,
     subType: SaveType = .UNKNOWN,
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const SkillType = enum {
@@ -152,11 +309,24 @@ pub const SkillType = enum {
 };
 
 pub const Move = struct {
-    typeName: []const u8 = "Move",
+    typeName: []const u8 = .Move,
     halfMove: i32,
     LAN: []const u8,
     SAN: []const u8,
     FEN: []const u8,
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const FoulType = enum {
@@ -165,8 +335,21 @@ pub const FoulType = enum {
 };
 
 pub const Assist = struct {
-    typeName: []const u8 = "Assist",
+    typeName: []const u8 = .Assist,
     subType: AssistType = .UNKNOWN,
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const IncidentType = enum {
@@ -305,8 +488,21 @@ pub const IncidentType = enum {
 };
 
 pub const PenaltyShootout = struct {
-    typeName: []const u8 = "PenaltyShootout",
+    typeName: []const u8 = .PenaltyShootout,
     subType: PenaltyShootoutType = .UNKNOWN,
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const GoalType = enum {
@@ -315,18 +511,44 @@ pub const GoalType = enum {
 };
 
 pub const PenaltyAwarded = struct {
-    typeName: []const u8 = "PenaltyAwarded",
+    typeName: []const u8 = .PenaltyAwarded,
     subType: PenaltyAwardedType = .UNKNOWN,
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const Evaluation = struct {
-    typeName: []const u8 = "Evaluation",
+    typeName: []const u8 = .Evaluation,
     halfMove: i32,
     FEN: []const u8,
     probabilities: ?Probabilities = null,
     bestMoves: ?avro.Array(StockfishEvaluation) = null,
     moves: avro.Array(MoveScore),
     ponderTimeMs: i32,
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const DefensiveActType = enum {
@@ -351,6 +573,19 @@ pub const Incident = struct {
     tsAdminIn: ?i64 = null,
     tsAdminOut: ?i64 = null,
     properties: avro.Map([]const u8),
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const PenaltyAwardedType = enum {
@@ -362,13 +597,39 @@ pub const OffsideType = enum {
 };
 
 pub const Skill = struct {
-    typeName: []const u8 = "Skill",
+    typeName: []const u8 = .Skill,
     subType: SkillType = .UNKNOWN,
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const DefensiveAct = struct {
-    typeName: []const u8 = "DefensiveAct",
+    typeName: []const u8 = .DefensiveAct,
     subType: DefensiveActType = .UNKNOWN,
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const ChanceType = enum {
@@ -377,13 +638,39 @@ pub const ChanceType = enum {
 };
 
 pub const Foul = struct {
-    typeName: []const u8 = "Foul",
+    typeName: []const u8 = .Foul,
     subType: FoulType = .UNKNOWN,
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const Offside = struct {
-    typeName: []const u8 = "Offside",
+    typeName: []const u8 = .Offside,
     subType: OffsideType = .UNKNOWN,
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const MoveScoreType = enum {
@@ -393,8 +680,21 @@ pub const MoveScoreType = enum {
 };
 
 pub const PenaltyShot = struct {
-    typeName: []const u8 = "PenaltyShot",
+    typeName: []const u8 = .PenaltyShot,
     subType: PenaltyShotType = .UNKNOWN,
+
+    const Self = @This();
+
+    pub const ReadError = error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
+
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
+
+    pub fn read(self: *Self, buf: []u8) ReadError!usize {
+        return @errorCast(avro.Reader.read(Self, self, buf));
+    }
 };
 
 pub const VarType = enum {

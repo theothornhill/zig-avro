@@ -1,10 +1,6 @@
 const number = @import("number.zig");
 const std = @import("std");
 
-pub const ReadStringError = error{
-    InvalidEOF,
-};
-
 /// Read a string from input `in`.
 /// Returns slice of `in` after end of string.
 /// `dst` is set to a slice of `in` containing the string.
@@ -13,7 +9,7 @@ pub fn read(dst: *[]const u8, in: []const u8) !usize {
     const n = try number.readLong(&len_i64, in);
     const len: usize = @intCast(len_i64);
     if (in.len < len) {
-        return ReadStringError.InvalidEOF;
+        return error.UnexpectedEndOfBuffer;
     }
     dst.* = in[n .. n + len];
     return n + len;
@@ -21,7 +17,7 @@ pub fn read(dst: *[]const u8, in: []const u8) !usize {
 
 test read {
     var out: []const u8 = &.{};
-    try std.testing.expectError(ReadStringError.InvalidEOF, read(&out, &[_]u8{20} ++ "hello"));
+    try std.testing.expectError(error.UnexpectedEndOfBuffer, read(&out, &[_]u8{20} ++ "hello"));
 
     var n = try read(&out, &[_]u8{5 << 1} ++ "hello");
     try std.testing.expectEqual(6, n);
