@@ -2,24 +2,41 @@
 
 ## Examples
 
-### Read into struct
+### Deserialize
 
 ```zig
-const std = @import("std");
-const avro = @import("zig-avro");
+pub const ReadLol = struct {
+    foo: bool,
+    bar: bool,
 
-const Record = struct { b: bool = false };
+    const Self = @This();
 
-const buf = &[_]u8{1}; // Buffer containing boolean `true`
+    pub const ReadError = avro.Reader.ReadError || error{};
+    pub const Reader = std.io.Reader(*Self, ReadError, read);
 
-var r: Record = undefined;
+    pub fn reader(self: *Self) Reader {
+        return .{ .context = self };
+    }
 
-_ = try avro.read(Record, &r, buf);
+    fn read(self: *Self, buf: []u8) !usize {
+        return try avro.Reader.read(Self, self, buf);
+    }
+};
 
-try std.testing.expect(r.b);
+test "foo" {
+    var buf: [2]u8 = .{0x1, 0x0};
+    const r: ReadLol = undefined;
+    _ = try r.reader().read(&buf);
+
+    try std.testing.expectEqual(true, r.foo);
+    try std.testing.expectEqual(false, r.bar);
+}
 ```
 
-### Write struct into bytes
+### Serialize
+
+The library takes a writer, so as long as you can supply a proper writer,
+`zig-avro` should be able to output its payload.
 
 ```zig
 const std = @import("std");
@@ -28,10 +45,12 @@ const avro = @import("zig-avro");
 const Record = struct { b: bool = false };
 
 var buf: [10]u8 = undefined;
+var fbs = std.io.fixedBufferStream(&buf);
+var writer = fbs.writer();
 
 var r = Record{ .b = true };
 
-_ = try write(Record, &r, &buf);
+const written = try r.write(&writer);
 
 try std.testing.expectEqual(1, buf[0]);
 ```
