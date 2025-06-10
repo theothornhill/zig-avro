@@ -148,21 +148,6 @@ pub fn Array(comptime T: type) type {
     };
 }
 
-pub fn Entry(comptime V: type) type {
-    return struct {
-        key: []const u8 = undefined,
-        value: V = undefined,
-        pub fn readOwn(self: *@This(), buf: []const u8) !usize {
-            const n = try read([]const u8, &self.key, buf);
-            return n + try read(V, &self.value, buf[n..]);
-        }
-    };
-}
-
-pub fn Map(comptime V: type) type {
-    return Array(Entry(V));
-}
-
 test "read array" {
     const buf = &[_]u8{
         1 << 1,
@@ -211,29 +196,6 @@ test "2d array" {
     try std.testing.expectEqual(4, cell);
     try std.testing.expectEqual(null, row2.next());
     try std.testing.expectEqual(null, a.next());
-}
-
-test "map of 2" {
-    var m: Map(i32) = undefined;
-    const buf = &[_]u8{
-        2 << 1, // array block length 2
-        1 << 1, // string(len 1)
-        'A',
-        4 << 1, // number 4
-        2 << 1, // string(len 2)
-        'B',
-        'C',
-        5 << 1, // number 5
-        0, // array end
-    };
-    _ = try read(Map(i32), &m, buf);
-    try std.testing.expectEqual(2, m.len);
-    var i = (try m.next()).?;
-    try std.testing.expectEqual(4, i.value);
-    try std.testing.expectEqualStrings("A", i.key);
-    i = (try m.next()).?;
-    try std.testing.expectEqual(5, i.value);
-    try std.testing.expectEqualStrings("BC", i.key);
 }
 
 test "read record" {

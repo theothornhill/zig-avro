@@ -417,25 +417,6 @@ test formatDocs {
     arr.clearAndFree();
 }
 
-const reader =
-    \\    const Self = @This();
-    \\
-    \\    pub const ReadError = avro.Reader.ReadError || error{};
-    \\    pub const Reader = std.io.Reader(*Self, ReadError, read);
-    \\
-    \\    pub fn reader(self: *Self) Reader {
-    \\        return .{ .context = self };
-    \\    }
-    \\
-    \\    fn read(self: *Self, buf: []u8) !usize {
-    \\        return try avro.Reader.read(Self, self, buf);
-    \\    }
-    \\
-    \\    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-    \\        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    \\    }
-;
-
 fn formatSchema(
     data: IndentedValue(Schema),
     comptime fmt: []const u8,
@@ -451,11 +432,10 @@ fn formatSchema(
                 return try writer.print("{p}", .{std.zig.fmtId(r.name)});
             }
             if (r.doc) |docs| try writer.print("{d}", .{fmtDocs(docs, data.indent_level)});
-            const format = "pub const {p} = struct {{{}\n\n{s}\n}};\n\n";
+            const format = "pub const {p} = struct {{{}\n}};\n\n";
             try writer.print(format, .{
                 std.zig.fmtId(r.name),
                 fmtFields(r.fields, data.indent_level + 1),
-                reader,
             });
         },
         .@"enum" => |r| {
@@ -563,23 +543,6 @@ test "format union in schema" {
         \\pub const LongList = struct {
         \\    value: i64,
         \\    next: ?LongList = null,
-        \\
-        \\    const Self = @This();
-        \\
-        \\    pub const ReadError = avro.Reader.ReadError || error{};
-        \\    pub const Reader = std.io.Reader(*Self, ReadError, read);
-        \\
-        \\    pub fn reader(self: *Self) Reader {
-        \\        return .{ .context = self };
-        \\    }
-        \\
-        \\    fn read(self: *Self, buf: []u8) !usize {
-        \\        return try avro.Reader.read(Self, self, buf);
-        \\    }
-        \\
-        \\    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        \\        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-        \\    }
         \\};
         \\
         \\
@@ -608,23 +571,6 @@ test "format more complex union in schema" {
         \\/// A linked list of longs
         \\pub const LongList = struct {
         \\    next: union(enum) { null, LongList1: LongList1, LongList2: LongList2, } = .null,
-        \\
-        \\    const Self = @This();
-        \\
-        \\    pub const ReadError = avro.Reader.ReadError || error{};
-        \\    pub const Reader = std.io.Reader(*Self, ReadError, read);
-        \\
-        \\    pub fn reader(self: *Self) Reader {
-        \\        return .{ .context = self };
-        \\    }
-        \\
-        \\    fn read(self: *Self, buf: []u8) !usize {
-        \\        return try avro.Reader.read(Self, self, buf);
-        \\    }
-        \\
-        \\    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        \\        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-        \\    }
         \\};
         \\
         \\

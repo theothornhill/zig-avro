@@ -6,135 +6,33 @@ const avro = @import("zig-avro");
 /// Specific information about a Chess incident
 pub const ChessSpecifics = struct {
     type: union(enum) { null, Move: Move, Clock: Clock, Evaluation: Evaluation, } = .null,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const Probabilities = struct {
     white: union(enum) { float: f32, int: i32, },
     draw: union(enum) { float: f32, int: i32, },
     black: union(enum) { float: f32, int: i32, },
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const Goal = struct {
     typeName: []const u8 = .Goal,
     subType: GoalType = .UNKNOWN,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const SetPlay = struct {
     typeName: []const u8 = .SetPlay,
     subType: SetPlayType = .UNKNOWN,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const Chance = struct {
     typeName: []const u8 = .Chance,
     subType: ChanceType = .UNKNOWN,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 /// @deprecated
 pub const StockfishEvaluation = struct {
     pawnAdvantage: f32,
     move: []const u8,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const SetPlayType = enum {
@@ -145,23 +43,6 @@ pub const SetPlayType = enum {
 pub const Var = struct {
     typeName: []const u8 = .Var,
     subType: VarType = .UNKNOWN,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const PenaltyShotType = enum {
@@ -171,23 +52,6 @@ pub const PenaltyShotType = enum {
 /// Specific information about a Football incident
 pub const FootballSpecifics = struct {
     type: union(enum) { null, Assist: Assist, Booking: Booking, Chance: Chance, DefensiveAct: DefensiveAct, Foul: Foul, Goal: Goal, Offside: Offside, PenaltyAwarded: PenaltyAwarded, PenaltyShootout: PenaltyShootout, PenaltyShot: PenaltyShot, Save: Save, SetPlay: SetPlay, Skill: Skill, Var: Var, } = .null,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const PenaltyShootoutType = enum {
@@ -213,23 +77,6 @@ pub const Clock = struct {
     typeName: []const u8 = .Clock,
     halfMove: i32,
     clock: []const u8,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const MoveScore = struct {
@@ -239,23 +86,6 @@ pub const MoveScore = struct {
     type: MoveScoreType,
     text: []const u8,
     probabilities: Probabilities,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const SportType = enum {
@@ -310,45 +140,11 @@ pub const SportType = enum {
 pub const Booking = struct {
     typeName: []const u8 = .Booking,
     subType: BookingType = .UNKNOWN,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const Save = struct {
     typeName: []const u8 = .Save,
     subType: SaveType = .UNKNOWN,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const SkillType = enum {
@@ -362,23 +158,6 @@ pub const Move = struct {
     LAN: []const u8,
     SAN: []const u8,
     FEN: []const u8,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const FoulType = enum {
@@ -389,23 +168,6 @@ pub const FoulType = enum {
 pub const Assist = struct {
     typeName: []const u8 = .Assist,
     subType: AssistType = .UNKNOWN,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const IncidentType = enum {
@@ -546,23 +308,6 @@ pub const IncidentType = enum {
 pub const PenaltyShootout = struct {
     typeName: []const u8 = .PenaltyShootout,
     subType: PenaltyShootoutType = .UNKNOWN,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const GoalType = enum {
@@ -573,23 +318,6 @@ pub const GoalType = enum {
 pub const PenaltyAwarded = struct {
     typeName: []const u8 = .PenaltyAwarded,
     subType: PenaltyAwardedType = .UNKNOWN,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const Evaluation = struct {
@@ -600,23 +328,6 @@ pub const Evaluation = struct {
     bestMoves: ?avro.Array(StockfishEvaluation) = null,
     moves: avro.Array(MoveScore),
     ponderTimeMs: i32,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const DefensiveActType = enum {
@@ -641,23 +352,6 @@ pub const Incident = struct {
     tsAdminIn: ?i64 = null,
     tsAdminOut: ?i64 = null,
     properties: avro.Map([]const u8),
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const PenaltyAwardedType = enum {
@@ -671,45 +365,11 @@ pub const OffsideType = enum {
 pub const Skill = struct {
     typeName: []const u8 = .Skill,
     subType: SkillType = .UNKNOWN,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const DefensiveAct = struct {
     typeName: []const u8 = .DefensiveAct,
     subType: DefensiveActType = .UNKNOWN,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const ChanceType = enum {
@@ -720,45 +380,11 @@ pub const ChanceType = enum {
 pub const Foul = struct {
     typeName: []const u8 = .Foul,
     subType: FoulType = .UNKNOWN,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const Offside = struct {
     typeName: []const u8 = .Offside,
     subType: OffsideType = .UNKNOWN,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const MoveScoreType = enum {
@@ -770,23 +396,6 @@ pub const MoveScoreType = enum {
 pub const PenaltyShot = struct {
     typeName: []const u8 = .PenaltyShot,
     subType: PenaltyShotType = .UNKNOWN,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
-
-    pub fn write(self: *Self, writer: anytype, schema_id: u32) !usize {
-        return try avro.Writer.writeWire(Self, writer, self, schema_id);
-    }
 };
 
 pub const VarType = enum {

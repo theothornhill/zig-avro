@@ -2,38 +2,25 @@
 
 ## Examples
 
-### Deserialize
+### Decode
 
 ```zig
 pub const ReadLol = struct {
     foo: bool,
     bar: bool,
-
-    const Self = @This();
-
-    pub const ReadError = avro.Reader.ReadError || error{};
-    pub const Reader = std.io.Reader(*Self, ReadError, read);
-
-    pub fn reader(self: *Self) Reader {
-        return .{ .context = self };
-    }
-
-    fn read(self: *Self, buf: []u8) !usize {
-        return try avro.Reader.read(Self, self, buf);
-    }
 };
 
 test "foo" {
     var buf: [2]u8 = .{0x1, 0x0};
-    const r: ReadLol = undefined;
-    _ = try r.reader().read(&buf);
+    var r: ReadLol = undefined;
+    _ = try avro.Reader.read(ReadLol &r, &buf);
 
     try std.testing.expectEqual(true, r.foo);
     try std.testing.expectEqual(false, r.bar);
 }
 ```
 
-### Serialize
+### Encode
 
 The library takes a writer, so as long as you can supply a proper writer,
 `zig-avro` should be able to output its payload.
@@ -50,7 +37,7 @@ var writer = fbs.writer();
 
 var r = Record{ .b = true };
 
-const written = try r.write(&writer);
+const written = try avro.encode(Record, &r, &writer);
 
 try std.testing.expectEqual(1, buf[0]);
 ```
@@ -63,7 +50,6 @@ We assume you have `.avsc` files in a directory called `avro` in root.
 
 In `build.zig`:
 ```zig
-
     const @"zig-avro" = b.dependency("zig-avro", .{
         .target = target,
         .optimize = optimize,

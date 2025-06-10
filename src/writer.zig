@@ -6,33 +6,6 @@ const reader = @import("reader.zig");
 const WriteError = @import("errors.zig").WriteError;
 const root = @import("root.zig");
 
-pub fn writeWire(comptime T: type, writer: anytype, v: *T, schema_id: u32) !usize {
-    const num_len = try number.writeInt(writer, 0);
-    try writer.writeInt(u32, schema_id, .big);
-    return num_len + 4 + try write(T, writer, v);
-}
-
-test "write wire" {
-    var buf: [200]u8 = undefined;
-    const schema_id: u32 = 300;
-    var fbs = std.io.fixedBufferStream(&buf);
-    var writer = fbs.writer();
-
-    const Foo = struct { foo: i32, bar: []const u8 };
-
-    var foo: Foo = .{ .bar = "rofl", .foo = 25 };
-
-    const written = try writeWire(Foo, &writer, &foo, schema_id);
-
-    try std.testing.expectEqual(11, written);
-    try std.testing.expectEqualStrings("rofl", buf[written - 4 .. written]);
-    try std.testing.expectEqualSlices(
-        u8,
-        &[_]u8{ 0x0, 0x0, 0x0, 0x01, 0x2C, 0x32, 0x8, 0x72, 0x6F, 0x66, 0x6C },
-        buf[0..written],
-    );
-}
-
 pub fn write(comptime T: type, writer: anytype, v: *T) !usize {
     switch (T) {
         bool => return try boolean.write(writer, v.*),
