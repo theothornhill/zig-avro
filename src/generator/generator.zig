@@ -730,15 +730,9 @@ pub const NamespaceSchemas = struct {
 };
 
 pub fn main() !void {
-    // Let's be as stupid as we can at first. We accumulate all structs into a
-    // map and write all to one file. This must surely change at some point, but
-    // let's not make an issue of it. The reason we do it like this is that I
-    // didn't want to think about how to share say, enums across two types. We
-    // can do @enumFromInt(@intFromEnum(foo)) shenanigans, but I'd rather
-    // discover a better solution.
-    //
-    // Improvment: Use namespace to group schemas together and write them to
-    // separate files.
+    // Schemas are grouped by namespace into separate files, but we have not
+    // yet coded support for generating @import statements to allow schemas
+    // to reference enums or records in other namespaces.
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     const allocator = arena.allocator();
 
