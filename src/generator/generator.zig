@@ -1,4 +1,5 @@
 const std = @import("std");
+const files = std.fs.File;
 const json = std.json;
 
 pub const Default = union(enum) {
@@ -708,6 +709,26 @@ fn accumulateSchemas(map: *std.StringHashMap(Schema), schema: Schema) !void {
     }
 }
 
+pub const NamespaceSchemas = struct {
+    namespace: []const u8,
+    main_schema: Schema,
+    schemas: std.StringHashMap(Schema),
+    out_path: []const u8,
+
+    pub fn init(allocator: std.mem.Allocator, namespace: []const u8, main_schema: Schema, out_path: []const u8) NamespaceSchemas {
+        return .{
+            .namespace = namespace,
+            .main_schema = main_schema,
+            .schemas = std.StringHashMap(Schema).init(allocator),
+            .out_path = out_path,
+        };
+    }
+
+    pub fn deinit(self: *NamespaceSchemas) void {
+        self.schemas.deinit();
+    }
+};
+
 pub fn main() !void {
     // Let's be as stupid as we can at first. We accumulate all structs into a
     // map and write all to one file. This must surely change at some point, but
@@ -715,6 +736,9 @@ pub fn main() !void {
     // didn't want to think about how to share say, enums across two types. We
     // can do @enumFromInt(@intFromEnum(foo)) shenanigans, but I'd rather
     // discover a better solution.
+    //
+    // Improvment: Use namespace to group schemas together and write them to
+    // separate files.
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     const allocator = arena.allocator();
 
@@ -731,10 +755,8 @@ pub fn main() !void {
     var dir = try cwd.openDir("avro", .{ .iterate = true });
     var it = dir.iterate();
 
-    var map = std.StringHashMap(Schema).init(allocator);
-    defer map.deinit();
-
-    var main_schema: ?Schema = null;
+    var namespace_schemas = std.StringHashMap(NamespaceSchemas).init(allocator);
+    defer namespace_schemas.deinit();
 
     while (it.next() catch null) |f| {
         const path = try std.fmt.allocPrint(allocator, "avro/{s}", .{f.name});
@@ -749,17 +771,28 @@ pub fn main() !void {
         // Only allow Record as top level for now
         if (p.value != .record) return error.InvalidSchema;
 
-        if (main_schema == null) {
-            main_schema = p.value;
+        const namespace = p.value.record.namespace orelse "default";  // Default to "default" if no namespace is given
+
+        const ns_res = try namespace_schemas.getOrPut(namespace);
+        if (!ns_res.found_existing) {
+            const filename = try std.fmt.allocPrint(allocator, "src/avro/{s}.zig", .{namespace});
+            ns_res.value_ptr.* = NamespaceSchemas.init(allocator, namespace, p.value, filename);
         }
 
-        try accumulateSchemas(&map, p.value);
-        try put(&map, p.value);
+        try accumulateSchemas(&ns_res.value_ptr.schemas, p.value);
+        try put(&ns_res.value_ptr.schemas, p.value);
     }
 
-    const out_path = "src/avro/types.zig";
-    var file = try cwd.createFile(out_path, .{});
-    defer file.close();
+    // Write the schemas to each namespace file
+    var ns_it = namespace_schemas.iterator();
+    while (ns_it.next()) |entry| {
+        const ns = entry.value_ptr;
 
-    try writeSchema(main_schema orelse return error.InvalidSchema, &map, file.writer());
+        std.debug.print("Writing namespace: {s} to {s}\n", .{ns.namespace, ns.out_path});
+
+        var file = try cwd.createFile(ns.out_path, .{});
+        defer file.close();
+
+        try writeSchema(ns.main_schema, &ns.schemas, file.writer());
+    }
 }
