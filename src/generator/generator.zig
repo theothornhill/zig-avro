@@ -510,8 +510,9 @@ fn formatSchema(
             }
             try writer.writeAll("}");
         },
-        else => |_| {
-            // std.debug.print("hmm {} \n", .{e});
+        else => |e| {
+            std.debug.print("Unexpected typeA {}\n", .{e});
+            @panic("Unexpected Type");
         },
     }
 }
