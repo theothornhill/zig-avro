@@ -246,7 +246,6 @@ fn formatDefault(
             try std.fmt.allocPrint(std.heap.page_allocator, ".{s}", .{s})
         else
             try std.fmt.allocPrint(std.heap.page_allocator, ".{s}", .{s}),
-            // try std.fmt.allocPrint(std.heap.page_allocator, "\"{s}\"", .{s}),
         else => null,
     };
 
@@ -300,7 +299,6 @@ fn formatField(
     });
 
     try writer.print("{s}: {}{},", .{
-        // fmtDocs(data.t.doc, data.indent_level),
         data.t.name,
         fmtSchema(data.t.type.*, data.indent_level),
         fmtDefault(data.t.default, data.t),
@@ -537,8 +535,6 @@ test "format union in schema" {
 
     defer arr.deinit();
 
-
-
     const expected =
         \\/// A linked list of longs
         \\pub const LongList = struct {
@@ -765,7 +761,7 @@ pub fn main() !void {
         // Only allow Record as top level for now
         if (p.value != .record) return error.InvalidSchema;
 
-        const namespace = p.value.record.namespace orelse "default";  // Default to "default" if no namespace is given
+        const namespace = p.value.record.namespace orelse "default"; // Default to "default" if no namespace is given
 
         const ns_res = try namespace_schemas.getOrPut(namespace);
         if (!ns_res.found_existing) {
@@ -782,7 +778,7 @@ pub fn main() !void {
     while (ns_it.next()) |entry| {
         const ns = entry.value_ptr;
 
-        std.debug.print("Writing namespace: {s} to {s}\n", .{ns.namespace, ns.out_path});
+        std.debug.print("Writing namespace: {s} to {s}\n", .{ ns.namespace, ns.out_path });
 
         var file = try cwd.createFile(ns.out_path, .{});
         defer file.close();
