@@ -3,43 +3,25 @@ const std = @import("std");
 pub const Reader = @import("reader.zig");
 pub const Writer = @import("writer.zig");
 
+pub const iter = @import("iterable.zig");
 pub const Generator = @import("generator/generator.zig");
-
-pub fn CreateIterator(
-    comptime IteratorType: type,
-    comptime Mapper: type,
-    arena: std.mem.Allocator,
-    u: Mapper,
-) IteratorType {
-    // It's expected to clean up this memory using an arena.
-    const uu = arena.create(Mapper) catch @panic("OOM");
-    uu.* = u;
-
-    return .{ .iterator = uu.iterator() };
-}
 
 pub fn Map(comptime T: type) type {
     return struct {
-        reader: Array(Entry) = .{},
-        iterator: ?Iterator(Entry) = null,
+        array: Array(Entry) = .{},
 
         pub const Entry = struct {
             key: []const u8,
             value: T,
 
-            pub fn readOwn(self: *@This(), buf: []const u8) !usize {
+            pub fn deserialize(self: *@This(), buf: []const u8) !usize {
                 const n = try Reader.read([]const u8, &self.key, buf);
                 return n + try Reader.read(T, &self.value, buf[n..]);
             }
-
         };
 
-        pub fn readOwn(self: *@This(), buf: []const u8) !usize {
-            return self.reader.readOwn(buf);
-        }
-
-        pub fn next(self: *@This()) !?*Entry {
-            return try self.reader.next();
+        pub fn deserialize(self: *@This(), buf: []const u8) !usize {
+            return self.array.deserialize(buf);
         }
     };
 }
@@ -58,10 +40,11 @@ test "map of 2" {
         0, // array end
     };
     _ = try Reader.read(Map(i32), &m, buf);
-    var i = (try m.next()).?;
+    var arri = m.array.iterable.iterator();
+    var i = (try arri.next()).?;
     try std.testing.expectEqual(4, i.value);
     try std.testing.expectEqualStrings("A", i.key);
-    i = (try m.next()).?;
+    i = (try arri.next()).?;
     try std.testing.expectEqual(5, i.value);
     try std.testing.expectEqualStrings("BC", i.key);
 }
@@ -71,40 +54,16 @@ test "Map iteration" {
     const allocator = arena.allocator();
     defer arena.deinit();
 
-    const Properties = struct {
-        pub const Entry = Map([]const u8).Entry;
-
-        entries: []Entry,
-        pos: usize = 0,
-
-        pub fn next(self: *@This()) !?Entry {
-            if (self.pos == self.entries.len)
-                return null;
-            const val = self.entries[self.pos];
-            self.pos += 1;
-            return val;
-        }
-
-        pub fn iterator(self: *@This()) Iterator(Entry) {
-            return Iterator(Entry).init(self);
-        }
-    };
-
-    var xs = std.ArrayList(Properties.Entry).init(allocator);
-    (try xs.addOne()).* = Properties.Entry{ .key = "hello", .value = "world" };
-
+    const Properties = Map([]const u8);
     const T = struct {
-        properties: Map([]const u8),
+        properties: Properties = .{},
     };
 
-    var t: T = .{
-        .properties = CreateIterator(
-            Map([]const u8),
-            Properties,
-            allocator,
-            .{ .entries = xs.items },
-        ),
-    };
+    var t = T{};
+    var hmi = iter.HashMapWithIterable(Properties.Entry).init(allocator);
+    try hmi.map.put("hello", "world");
+    const propIterable = hmi.iterable();
+    t.properties.array.iterable = propIterable;
 
     var buf: [100]u8 = undefined;
     var fbs = std.io.fixedBufferStream(&buf);
@@ -121,44 +80,51 @@ test "Map iteration" {
 pub fn Array(comptime T: type) type {
     return struct {
         reader: Reader.Array(T) = .{},
-        iterator: ?Iterator(T) = null,
-
-        pub fn readOwn(self: *@This(), buf: []const u8) !usize {
-            return self.reader.readOwn(buf);
-        }
-
-        pub fn next(self: *@This()) !?*T {
-            return try self.reader.next();
+        iterable: iter.Iterable(T) = Noterator(T).iterable(),
+        pub fn deserialize(self: *@This(), buf: []const u8) !usize {
+            const n = try self.reader.deserialize(buf);
+            self.iterable = self.reader.iterable();
+            return n;
         }
     };
 }
 
-pub fn Iterator(comptime T: type) type {
+fn Noterator(comptime T: type) type {
     return struct {
-        ptr: *anyopaque,
-        nextFn: *const fn (ptr: *anyopaque) anyerror!?T,
-
-        pub fn init(ptr: anytype) Iterator(T) {
-            const U = @TypeOf(ptr);
-            const ptr_info = @typeInfo(U);
-
-            const gen = struct {
-                pub fn next(pointer: *anyopaque) !?T {
-                    const self: U = @ptrCast(@alignCast(pointer));
-                    return ptr_info.pointer.child.next(self);
-                }
-            };
-
-            return .{
-                .ptr = ptr,
-                .nextFn = gen.next,
-            };
+        pub fn iterable() iter.Iterable(T) {
+            return iter.Iterable(T){ .ptr = @constCast(@ptrCast(&0)), .iteratorFn = @This().iterator };
         }
-
-        pub fn next(self: *Iterator(T)) !?T {
-            return self.nextFn(self.ptr);
+        pub fn iterator(_: *anyopaque) iter.Iterator(T) {
+            return iter.Iterator(T){ .ptr = @constCast(@ptrCast(&0)), .nextFn = @This().next };
+        }
+        pub fn next(_: *anyopaque) !?*T {
+            return error.NoIterator;
         }
     };
+}
+
+test "uninitialized iterators are bad" {
+    var a: Array(i32) = .{};
+    var it = a.iterable.iterator();
+    try std.testing.expectError(error.NoIterator, it.next());
+}
+
+fn Shitterable(comptime T: type, items: []T) type {
+    const Shitterator = struct {
+        pos: usize,
+        items: []T,
+        pub fn iterator(self: *const @This()) iter.Iterator(T) {
+            return iter.Iterator(T).init(self, 0, 0);
+        }
+        pub fn next(self: *const @This(), item: *T, pos: *usize, _: *i64) ?T {
+            defer pos.* += 1;
+            if (pos.* > self.items.len) return error.IteratorPastEnd;
+            if (pos.* == self.items.len) return null;
+            item.* = items[pos.*];
+            return item.*;
+        }
+    };
+    return iter.Iterable(T).init(Shitterator);
 }
 
 pub fn encode(comptime T: type, self: *T, writer: anytype) !usize {

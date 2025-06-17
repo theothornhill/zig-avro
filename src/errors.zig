@@ -1,5 +1,6 @@
 pub const ReadError = error{
-    UninitializedOrSpentIterator,
+    UninitializedIterator,
+    SpentIterator,
     UnionIdOutOfBounds,
     UnexpectedEndOfBuffer,
     IntegerOverflow,
