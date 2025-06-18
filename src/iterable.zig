@@ -3,7 +3,6 @@ const std = @import("std");
 pub fn Iterable(comptime T: type) type {
     return struct {
         ptr: *anyopaque,
-        /// null for unknown is a valid, common value
         iteratorFn: *const fn (ptr: *anyopaque) Iterator(T),
         /// Invalidates previously returned iterators
         pub fn iterator(self: *Iterable(T)) Iterator(T) {
