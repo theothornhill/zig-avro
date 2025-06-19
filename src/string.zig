@@ -8,9 +8,8 @@ pub fn read(dst: *[]const u8, in: []const u8) !usize {
     var len_i64: i64 = 0;
     const n = try number.readLong(&len_i64, in);
     const len: usize = @intCast(len_i64);
-    if (in.len < len) {
+    if (in.len < len)
         return error.UnexpectedEndOfBuffer;
-    }
     dst.* = in[n .. n + len];
     return n + len;
 }
@@ -49,7 +48,6 @@ test write {
     const out = try write(&writer, res);
     try std.testing.expectEqual(3, out);
     try std.testing.expectEqualStrings(res, buf[1..]);
-
 
     const res2 = "🤪🤑🤑🤑🤑";
     var buf2: [res2.len + 1]u8 = undefined;

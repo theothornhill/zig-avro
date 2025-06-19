@@ -2,6 +2,7 @@ const std = @import("std");
 const number = @import("number.zig");
 const boolean = @import("bool.zig");
 const string = @import("string.zig");
+const iter = @import("iterable.zig");
 pub const ReadError = @import("errors.zig").ReadError;
 
 pub fn read(comptime T: type, v: *T, buf: []const u8) !usize {
@@ -15,8 +16,8 @@ pub fn read(comptime T: type, v: *T, buf: []const u8) !usize {
         else => {
             switch (@typeInfo(T)) {
                 .@"struct" => {
-                    if (@hasDecl(T, "readOwn"))
-                        return (try v.readOwn(buf));
+                    if (@hasDecl(T, "deserialize"))
+                        return (try v.deserialize(buf));
                     return try readRecord(T, v, buf);
                 },
                 .@"enum" => return try readEnum(T, v, buf),
@@ -81,38 +82,50 @@ fn readUnion(comptime U: type, u: *U, buf: []const u8) !usize {
 
 pub fn Array(comptime T: type) type {
     return struct {
-        item: T = undefined,
         len: usize = 0,
-        currentBlockLen: i64 = 0,
-        restBuf: []const u8 = &.{},
+        buf: []const u8 = &.{},
         valid: bool = false,
+        item: T = undefined,
+        pos: usize = 0,
+        currentBlockLen: i64 = 0,
 
         /// If there are remaining items in the array, read the next and return it.
         /// Returns null if there are no remaining items.
-        ///
-        /// This iterator can only be used once.
-        pub fn next(self: *Array(T)) !?*T {
+        pub fn next(ptr: *anyopaque) !?*T {
+            var self: *@This() = @ptrCast(@alignCast(ptr));
             if (!self.valid)
-                return ReadError.UninitializedOrSpentIterator;
+                return ReadError.UninitializedIterator;
+            if (self.pos >= self.buf.len)
+                return ReadError.SpentIterator;
             if (self.currentBlockLen == 0) {
-                const n = try number.readLong(&self.currentBlockLen, self.restBuf);
-                self.restBuf = self.restBuf[n..];
+                self.pos += try number.readLong(&self.currentBlockLen, self.buf[self.pos..]);
             }
             if (self.currentBlockLen < 0) {
                 var blockByteCount: i64 = undefined;
                 self.currentBlockLen = -self.currentBlockLen;
-                const n = try number.readLong(&blockByteCount, self.restBuf);
-                self.restBuf = self.restBuf[n..];
+                self.pos += try number.readLong(&blockByteCount, self.buf[self.pos..]);
             }
             if (self.currentBlockLen == 0) {
-                self.valid = false;
+                self.pos = self.buf.len;
                 return null;
             }
             self.currentBlockLen -= 1;
-            self.restBuf = self.restBuf[try read(T, &self.item, self.restBuf)..];
+            self.pos += try read(T, &self.item, self.buf[self.pos..]);
             return &self.item;
         }
-        /// Prepares an iterator an returns buffer after end of array.
+
+        pub fn iterable(self: *@This()) iter.Iterable(T) {
+            return iter.Iterable(T){ .ptr = self, .iteratorFn = @This().iterator };
+        }
+
+        pub fn iterator(ptr: *anyopaque) iter.Iterator(T) {
+            var self: *@This() = @ptrCast(@alignCast(ptr));
+            self.pos = 0;
+            self.currentBlockLen = 0;
+            return iter.Iterator(T){ .ptr = ptr, .nextFn = @This().next };
+        }
+
+        /// Prepares an iterator and returns buffer after end of array.
         /// Total count of array items stored in self.len.
         ///
         /// Arrays contain 0 or more items arranged in 0 or more blocks.
@@ -122,10 +135,9 @@ pub fn Array(comptime T: type) type {
         /// bytes allowing us to skip past it faster. This is signalled by having a negative
         /// `blockItems`, in which we should flip it to positive and read another varint
         /// describing the `blockBytesLength`.
-        pub fn readOwn(self: *Array(T), buf: []const u8) !usize {
+        pub fn deserialize(self: *Array(T), buf: []const u8) !usize {
             self.len = 0;
-            self.restBuf = buf;
-            self.currentBlockLen = 0;
+            self.buf = buf;
             var blockItems: i64 = 0;
             var blockBytesLength: i64 = 0;
             var n: usize = 0;
@@ -139,8 +151,9 @@ pub fn Array(comptime T: type) type {
                     n += try number.readLong(&blockBytesLength, buf[n..]);
                     n += @intCast(blockBytesLength);
                 } else {
+                    var i: T = undefined;
                     for (0..@intCast(blockItems)) |_|
-                        n += try read(T, &self.item, buf[n..]);
+                        n += try read(T, &i, buf[n..]);
                 }
                 self.len += @intCast(blockItems);
             }
@@ -155,7 +168,7 @@ test "read array" {
         0,
     };
     var a: Array(i32) = undefined;
-    const n = try a.readOwn(buf);
+    const n = try a.deserialize(buf);
     try std.testing.expectEqual(3, n);
 }
 
@@ -181,21 +194,27 @@ test "2d array" {
     const rem = try read(Array(Array(i32)), &a, buf);
     try std.testing.expectEqual(10, rem);
     try std.testing.expectEqual(2, a.len);
-    const row1 = (try a.next()).?;
+    var ib = a.iterable();
+    var rowIt: iter.Iterator(Array(i32)) = ib.iterator();
+    var row1 = (try rowIt.next()).?;
     try std.testing.expectEqual(2, row1.len);
-    var cell = (try row1.next()).?.*;
-    try std.testing.expectEqual(1, cell);
-    cell = (try row1.next()).?.*;
-    try std.testing.expectEqual(2, cell);
-    try std.testing.expectEqual(null, row1.next());
-    const row2 = (try a.next()).?;
+    var row1b = row1.iterable();
+    var colIt: iter.Iterator(i32) = row1b.iterator();
+    var cell = (try colIt.next()).?;
+    try std.testing.expectEqual(1, cell.*);
+    cell = (try colIt.next()).?;
+    try std.testing.expectEqual(2, cell.*);
+    try std.testing.expectEqual(null, colIt.next());
+    var row2 = (try rowIt.next()).?;
     try std.testing.expectEqual(2, row2.len);
-    cell = (try row2.next()).?.*;
-    try std.testing.expectEqual(3, cell);
-    cell = (try row2.next()).?.*;
-    try std.testing.expectEqual(4, cell);
-    try std.testing.expectEqual(null, row2.next());
-    try std.testing.expectEqual(null, a.next());
+    var row2b = row2.iterable();
+    colIt = row2b.iterator();
+    cell = (try colIt.next()).?;
+    try std.testing.expectEqual(3, cell.*);
+    cell = (try colIt.next()).?;
+    try std.testing.expectEqual(4, cell.*);
+    try std.testing.expectEqual(null, colIt.next());
+    try std.testing.expectEqual(null, rowIt.next());
 }
 
 test "read record" {
@@ -249,7 +268,9 @@ test "read record" {
 
     try std.testing.expectEqualStrings("HI", r.message.?);
     try std.testing.expectEqual(null, r.flags);
-    try std.testing.expectEqual(5, (try r.items.next()).?.*);
+    var ita = r.items.iterable();
+    var itit = ita.iterator();
+    try std.testing.expectEqual(5, (try itit.next()).?.*);
     try std.testing.expectEqual(2, r.onion.number);
     try std.testing.expectEqual(22, num_read1 + num_read2);
 }

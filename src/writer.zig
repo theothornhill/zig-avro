@@ -5,6 +5,7 @@ const boolean = @import("bool.zig");
 const reader = @import("reader.zig");
 const WriteError = @import("errors.zig").WriteError;
 const root = @import("root.zig");
+const iter = @import("iterable.zig");
 
 pub fn write(comptime T: type, writer: anytype, v: *T) !usize {
     switch (T) {
@@ -17,15 +18,10 @@ pub fn write(comptime T: type, writer: anytype, v: *T) !usize {
         else => {
             switch (@typeInfo(T)) {
                 .@"struct" => {
-                    if (@hasField(T, "iterator")) {
-                        var it = v.iterator orelse return error.ArrayTooShort;
-                        return try writeArray(@TypeOf(it), writer, &it);
-                    }
-
-                    if (@hasDecl(T, "next")) {
+                    if (@hasField(T, "array"))
+                        return try writeArray(@TypeOf(v.array), writer, &v.array);
+                    if (@hasField(T, "iterable"))
                         return try writeArray(T, writer, v);
-                    }
-
                     return try writeRecord(T, writer, v);
                 },
                 .@"enum" => return try writeEnum(T, writer, v.*),
@@ -41,21 +37,22 @@ pub fn write(comptime T: type, writer: anytype, v: *T) !usize {
 
 fn writeArray(comptime A: type, writer: anytype, a: *A) !usize {
     var pos: usize = 0;
+    var it = a.iterable.iterator();
     if (@hasField(A, "len")) {
-        pos += try number.writeLong(writer, @as(i64, a.len));
+        pos += try number.writeLong(writer, @as(i64, @intCast(a.len)));
         var count: u64 = 0;
-        while (try a.next()) |*val| {
-            const V = @TypeOf(val.*);
+        while (try it.next()) |val| {
+            const V = @typeInfo(@TypeOf(val)).pointer.child;
             count += 1;
             if (count > a.len) return WriteError.ArrayTooLong;
-            pos += try write(V, writer, @constCast(val));
+            pos += try write(V, writer, val);
         }
         if (count < a.len) return WriteError.ArrayTooShort;
     } else {
-        while (try a.next()) |*val| {
-            const V = @TypeOf(val.*);
+        while (try it.next()) |val| {
+            const V = @typeInfo(@TypeOf(val)).pointer.child;
             pos += try number.writeInt(writer, 1);
-            pos += try write(V, writer, @constCast(val));
+            pos += try write(V, writer, val);
         }
     }
     try writer.writeByte(0);
@@ -100,23 +97,19 @@ fn writeRecord(comptime R: type, writer: anytype, r: *R) !usize {
     return written;
 }
 
-test "write array" {
+test "write array with unknown length" {
     var writeBuffer: [100]u8 = undefined;
     var fbs = std.io.fixedBufferStream(&writeBuffer);
     var writer = fbs.writer();
 
     const Record = struct {
         list: struct {
-            itemsLeft: u4,
-            pub fn next(self: *@This()) !?i32 {
-                if (self.itemsLeft == 0) return null;
-                self.itemsLeft -= 1;
-                return 1;
-            }
+            iterable: iter.Iterable(i32),
         },
     };
-    var r: Record = undefined;
-    r.list.itemsLeft = 2;
+    var nums = [_]i32{ 1, 1 };
+    var numsItCtx = iter.SliceIterableContext(i32){};
+    var r = Record{ .list = .{ .iterable = numsItCtx.iterable(&nums) } };
     const out = try write(Record, &writer, &r);
     try std.testing.expectEqual(5, out);
 }
@@ -128,18 +121,13 @@ test "write array with known length" {
 
     const Record = struct {
         list: struct {
-            len: u4,
-            yielded: u4,
-            pub fn next(self: *@This()) !?i32 {
-                if (self.yielded == self.len) return null;
-                self.yielded += 1;
-                return 1;
-            }
+            len: usize = 2,
+            iterable: iter.Iterable(i32),
         },
     };
-    var r: Record = undefined;
-    r.list.len = 2;
-    r.list.yielded = 0;
+    var nums = [_]i32{ 1, 1 };
+    var numsItCtx = iter.SliceIterableContext(i32){};
+    var r = Record{ .list = .{ .iterable = numsItCtx.iterable(&nums) } };
     const out = try write(Record, &writer, &r);
     try std.testing.expectEqual(4, out);
 }
