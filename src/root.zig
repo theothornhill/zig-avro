@@ -109,24 +109,6 @@ test "uninitialized iterators are bad" {
     try std.testing.expectError(error.NoIterator, it.next());
 }
 
-fn Shitterable(comptime T: type, items: []T) type {
-    const Shitterator = struct {
-        pos: usize,
-        items: []T,
-        pub fn iterator(self: *const @This()) iter.Iterator(T) {
-            return iter.Iterator(T).init(self, 0, 0);
-        }
-        pub fn next(self: *const @This(), item: *T, pos: *usize, _: *i64) ?T {
-            defer pos.* += 1;
-            if (pos.* > self.items.len) return error.IteratorPastEnd;
-            if (pos.* == self.items.len) return null;
-            item.* = items[pos.*];
-            return item.*;
-        }
-    };
-    return iter.Iterable(T).init(Shitterator);
-}
-
 pub fn encode(comptime T: type, self: *T, writer: anytype) !usize {
     return try Writer.write(T, writer, self);
 }
