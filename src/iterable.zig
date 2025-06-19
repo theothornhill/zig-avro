@@ -27,13 +27,13 @@ pub fn HashMapWithIterable(comptime MapEntry: type) type {
     const Ctx = struct {
         stuff: *std.StringHashMap(V) = undefined,
         it: std.StringHashMap(V).Iterator = undefined,
-        cursor: MapEntry = undefined,
+        entry: MapEntry = undefined,
     };
     const Gen = struct {
         pub fn iterator(ptr: *anyopaque) Iterator(MapEntry) {
             var ctx: *Ctx = @ptrCast(@alignCast(ptr));
             ctx.it = ctx.stuff.iterator();
-            return Iterator(MapEntry){
+            return .{
                 .ptr = ptr,
                 .nextFn = @This().next,
             };
@@ -41,9 +41,10 @@ pub fn HashMapWithIterable(comptime MapEntry: type) type {
         pub fn next(ptr: *anyopaque) !?*MapEntry {
             var ctx: *Ctx = @ptrCast(@alignCast(ptr));
             if (ctx.it.next()) |entry| {
-                ctx.cursor = .{ .key = entry.key_ptr.*, .value = entry.value_ptr.* };
-                return &ctx.cursor;
-            } else return null;
+                ctx.entry = .{ .key = entry.key_ptr.*, .value = entry.value_ptr.* };
+                return &ctx.entry;
+            }
+            return null;
         }
     };
     return struct {
@@ -58,7 +59,7 @@ pub fn HashMapWithIterable(comptime MapEntry: type) type {
         }
         pub fn iterable(self: *@This()) Iterable(MapEntry) {
             self.ctx.stuff = &self.map;
-            return Iterable(MapEntry){ .ptr = &self.ctx, .iteratorFn = Gen.iterator };
+            return .{ .ptr = &self.ctx, .iteratorFn = Gen.iterator };
         }
     };
 }
@@ -74,7 +75,7 @@ pub fn IterableMappingContext(comptime In: type, comptime Out: type, comptime Ma
         pub fn iterator(ptr: *anyopaque) Iterator(Out) {
             var ctx: *Ctx = @ptrCast(@alignCast(ptr));
             ctx.srcIt = ctx.src.iterator();
-            return Iterator(Out){
+            return .{
                 .ptr = ptr,
                 .nextFn = @This().next,
             };
@@ -84,14 +85,15 @@ pub fn IterableMappingContext(comptime In: type, comptime Out: type, comptime Ma
             if (try ctx.srcIt.next()) |v| {
                 try ctx.mapper.map(v, &ctx.cursor);
                 return &ctx.cursor;
-            } else return null;
+            }
+            return null;
         }
     };
     return struct {
         ctx: Ctx = undefined,
         pub fn iterable(self: *@This(), mapper: *Mapper, src: *Iterable(In)) Iterable(Out) {
             self.ctx = .{ .mapper = mapper, .src = src };
-            return Iterable(Out){ .ptr = &self.ctx, .iteratorFn = Gen.iterator };
+            return .{ .ptr = &self.ctx, .iteratorFn = Gen.iterator };
         }
     };
 }
@@ -105,7 +107,7 @@ pub fn SliceIterableContext(comptime T: type) type {
         pub fn iterator(ptr: *anyopaque) Iterator(T) {
             var ctx: *Ctx = @ptrCast(@alignCast(ptr));
             ctx.pos = 0;
-            return Iterator(T){
+            return .{
                 .ptr = ptr,
                 .nextFn = @This().next,
             };
@@ -123,7 +125,7 @@ pub fn SliceIterableContext(comptime T: type) type {
         ctx: Ctx = undefined,
         pub fn iterable(self: *@This(), items: []T) Iterable(T) {
             self.ctx = .{ .items = items };
-            return Iterable(T){ .ptr = &self.ctx, .iteratorFn = Gen.iterator };
+            return .{ .ptr = &self.ctx, .iteratorFn = Gen.iterator };
         }
     };
 }
