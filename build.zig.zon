@@ -1,7 +1,7 @@
 .{
     .name = .zig_avro,
     .fingerprint = 0xfaccdfc611852b2d,
-    .version = "2.0.0",
+    .version = "3.0.0",
     .dependencies = .{},
     .paths = .{
         "build.zig",
