@@ -1,9 +1,18 @@
 const std = @import("std");
 
+/// Interface that is satisfied by the Array deserializers, but
+/// is dynamic in order to be interchangable with client provided
+/// Iterable implementations during seralization.
+///
+/// Note that due to the library being allocation free and zero-copy,
+/// there is only ever one underlying iterator for a data structure.
+/// I.e. any call to iterator() will invalidate any previously returned
+/// iterator from this iterable.
 pub fn Iterable(comptime T: type) type {
     return struct {
         ptr: *anyopaque,
         iteratorFn: *const fn (ptr: *anyopaque) Iterator(T),
+
         /// Invalidates previously returned iterators
         pub fn iterator(self: *Iterable(T)) Iterator(T) {
             return self.iteratorFn(self.ptr);
@@ -11,10 +20,19 @@ pub fn Iterable(comptime T: type) type {
     };
 }
 
+/// Interface that is satisfied by the Array deserializers, but
+/// is dynamic in order to be interchangable with client provided
+/// Iterable implementations during seralization.
+///
+/// Note that due to the library being allocation free and zero-copy,
+/// there is only ever one underlying value for a data structure.
+/// I.e. any call to next() will invalidate any previously returned
+/// value from this iterator.
 pub fn Iterator(comptime T: type) type {
     return struct {
         ptr: *anyopaque,
         nextFn: *const fn (ptr: *anyopaque) anyerror!?*T,
+
         /// Invalidates previously returned items
         pub fn next(self: *@This()) !?*T {
             return self.nextFn(self.ptr);

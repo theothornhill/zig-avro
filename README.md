@@ -42,7 +42,39 @@ const written = try avro.encode(Record, &r, &writer);
 try std.testing.expectEqual(1, buf[0]);
 ```
 
+For Arrays (and for Maps are just Arrays of entry records), you will
+need to supply an "iterable" for the data:
+```zig
+const std = @import("std");
+const avro = @import("zig-avro");
 
+const FootballTeam = struct {
+    name: []const u8,
+    player_ids: avro.Array(i32),
+};
+
+var buf: [50]u8 = undefined;
+var fbs = std.io.fixedBufferStream(&buf);
+var writer = fbs.writer();
+
+var t = FootballTeam{
+    .name = "Zig Avro Oldboys",
+    .player_ids = .{},
+};
+var ids = [_]i32{ 11, 23, 99, 45, 22, 84, 92, 88, 24, 1, 8 };
+
+// If you have data as as slice, we can use the helper to give us
+// an iterable over it.
+// Otherwise, see Iterable/Iterator source code for how to implement
+// an iterable.
+var ictx = avro.iter.SliceIterableContext(i32){};
+t.player_ids.iterable = ictx.iterable(&ids);
+
+const written = try avro.Writer.write(FootballTeam, &writer, &t);
+
+try std.testing.expectEqualStrings("Avro", buf[5..9]);
+try std.testing.expectEqual(44, written);
+```
 
 ## How to generate structs
 

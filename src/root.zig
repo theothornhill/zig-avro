@@ -26,6 +26,34 @@ pub fn Map(comptime T: type) type {
     };
 }
 
+test "array example from readme" {
+    const FootballTeam = struct {
+        name: []const u8,
+        player_ids: Array(i32),
+    };
+
+    var buf: [50]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    var writer = fbs.writer();
+
+    var ids = [_]i32{ 11, 23, 99, 45, 22, 84, 92, 88, 24, 1, 8 };
+    var t = FootballTeam{
+        .name = "Zig Avro Oldboys",
+        .player_ids = .{},
+    };
+    // If you have data as as slice, we can use the helper to give us
+    // an iterable over it.
+    // Otherwise, see Iterable/Iterator source code for how to implement
+    // an iterable.
+    var ictx = iter.SliceIterableContext(i32){};
+    t.player_ids.iterable = ictx.iterable(&ids);
+
+    const written = try Writer.write(FootballTeam, &writer, &t);
+
+    try std.testing.expectEqualStrings("Avro", buf[5..9]);
+    try std.testing.expectEqual(44, written);
+}
+
 test "map of 2" {
     var m: Map(i32) = undefined;
     const buf = &[_]u8{
