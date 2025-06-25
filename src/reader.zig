@@ -39,7 +39,9 @@ pub fn readOptional(comptime T: type, v: *?T, buf: []const u8) !usize {
         v.* = null;
         return 1;
     }
-    v.* = std.mem.zeroes(T);
+    // This flips off the "is null" flag without doing anything to the
+    // underlying data.
+    v.* = undefined;
     return 1 + try read(T, &(v.*.?), buf[1..]);
 }
 
