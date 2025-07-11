@@ -99,7 +99,7 @@ or from cli (after building the binary included from building this lib):
 ./zig-out/bin/avro_generator
 ```
 
-Then the files will be located in `lib/avro`. This path is hard coded for the time being.
+Then the files will be located in `src/avro`. This path is hard coded for the time being.
 
 ## Avro spec
 - [1.12.0](https://avro.apache.org/docs/1.12.0/)

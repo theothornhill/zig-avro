@@ -735,7 +735,7 @@ pub fn main() !void {
 
     const cwd = std.fs.cwd();
 
-    cwd.makeDir("lib/avro") catch |err| switch (err) {
+    cwd.makeDir("src/avro") catch |err| switch (err) {
         error.PathAlreadyExists => {},
         else => {
             std.debug.print("Failed: {}", .{err});
@@ -766,7 +766,7 @@ pub fn main() !void {
 
         const ns_res = try namespace_schemas.getOrPut(namespace);
         if (!ns_res.found_existing) {
-            const filename = try std.fmt.allocPrint(allocator, "lib/avro/{s}.zig", .{namespace});
+            const filename = try std.fmt.allocPrint(allocator, "src/avro/{s}.zig", .{namespace});
             ns_res.value_ptr.* = NamespaceSchemas.init(allocator, namespace, p.value, filename);
         }
 
