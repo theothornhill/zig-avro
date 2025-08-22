@@ -25,8 +25,11 @@ pub fn build(b: *std.Build) void {
 
     const generator = b.addExecutable(.{
         .name = "generator",
-        .root_source_file = b.path("src/generator/generator.zig"),
-        .target = b.graph.host,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/generator/generator.zig"),
+            .target = b.graph.host,
+            .optimize = optimize,
+        }),
     });
 
     b.installArtifact(generator);
