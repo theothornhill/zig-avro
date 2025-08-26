@@ -726,16 +726,35 @@ pub const NamespaceSchemas = struct {
     }
 };
 
+const CliArgs = struct {
+    schemaDir: []const u8 = "avro",
+    outputDir: []const u8 = "src/avro",
+    pub fn honk() CliArgs {
+        var args = CliArgs{};
+        var it = std.process.args();
+        while (it.next()) |arg| {
+            if (std.mem.indexOfScalar(u8, arg, '=')) |eq| {
+                if (std.mem.eql(u8, arg[0..eq], "--schemaDir"))
+                    args.schemaDir = arg[eq + 1 ..];
+                if (std.mem.eql(u8, arg[0..eq], "--outputDir"))
+                    args.outputDir = arg[eq + 1 ..];
+            }
+        }
+        return args;
+    }
+};
+
 pub fn main() !void {
     // Schemas are grouped by namespace into separate files, but we have not
     // yet coded support for generating @import statements to allow schemas
     // to reference enums or records in other namespaces.
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     const allocator = arena.allocator();
+    const args = CliArgs.honk();
 
     const cwd = std.fs.cwd();
 
-    cwd.makeDir("src/avro") catch |err| switch (err) {
+    cwd.makeDir(args.outputDir) catch |err| switch (err) {
         error.PathAlreadyExists => {},
         else => {
             std.debug.print("Failed: {}", .{err});
@@ -743,14 +762,14 @@ pub fn main() !void {
         },
     };
 
-    var dir = try cwd.openDir("avro", .{ .iterate = true });
+    var dir = try cwd.openDir(args.schemaDir, .{ .iterate = true });
     var it = dir.iterate();
 
     var namespace_schemas = std.StringHashMap(NamespaceSchemas).init(allocator);
     defer namespace_schemas.deinit();
 
     while (it.next() catch null) |f| {
-        const path = try std.fmt.allocPrint(allocator, "avro/{s}", .{f.name});
+        const path = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ args.schemaDir, f.name });
 
         const p = try json.parseFromSlice(
             Schema,
@@ -766,7 +785,7 @@ pub fn main() !void {
 
         const ns_res = try namespace_schemas.getOrPut(namespace);
         if (!ns_res.found_existing) {
-            const filename = try std.fmt.allocPrint(allocator, "src/avro/{s}.zig", .{namespace});
+            const filename = try std.fmt.allocPrint(allocator, "{s}/{s}.zig", .{ args.outputDir, namespace });
             ns_res.value_ptr.* = NamespaceSchemas.init(allocator, namespace, p.value, filename);
         }
 

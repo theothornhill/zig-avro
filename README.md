@@ -89,6 +89,8 @@ In `build.zig`:
 
 
     var avrogen = b.addRunArtifact(@"zig-avro".artifact("generator"));
+    avrogen.addArg("--schemaDir=avro");
+    avrogen.addArg("--outputDir=src/avro");
 
     b.getInstallStep().dependOn(&avrogen.step);
 ```
