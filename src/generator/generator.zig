@@ -1,6 +1,7 @@
 const std = @import("std");
 const files = std.fs.File;
 const json = std.json;
+const Writer = std.Io.Writer;
 
 pub const Default = union(enum) {
     none,
@@ -220,369 +221,429 @@ pub const IndentOptions = struct {
     indent_level: usize,
 };
 
-fn indent(writer: anytype, options: IndentOptions) !void {
+fn indent(writer: *Writer, options: IndentOptions) !void {
     if (options.add_newline_before) try writer.writeByte('\n');
     const char: u8 = ' ';
     const n_chars = 4 * options.indent_level;
-    try writer.writeByteNTimes(char, n_chars);
+    try writer.splatByteAll(char, n_chars);
     if (options.add_newline_after) try writer.writeByte('\n');
 }
 
-fn formatDefault(
-    data: struct { val: Default, ctx: Field },
-    comptime _: []const u8,
-    _: std.fmt.FormatOptions,
-    writer: anytype,
-) @TypeOf(writer).Error!void {
-    if (data.val == .none) return;
+const DefaultContext = struct { val: Default, ctx: Field };
 
-    if (data.ctx.default == .none) return;
+const FmtDefault = struct {
+    context: DefaultContext,
 
-    var enum_prefix = switch (data.ctx.default.val) {
-        .null => "null",
-        .string => |s| if (std.mem.eql(u8, s, "null"))
-            "null"
-        else if (data.ctx.type.* == .@"enum")
-            try std.fmt.allocPrint(std.heap.page_allocator, ".{s}", .{s})
-        else
-            try std.fmt.allocPrint(std.heap.page_allocator, ".{s}", .{s}),
-        else => null,
-    };
+    pub fn format(
+        self: @This(),
+        writer: *Writer,
+    ) !void {
+        if (self.context.val == .none) return;
 
-    switch (data.ctx.type.*) {
-        .@"union" => |u| {
-            if (u.len > 2) {
-                if (std.mem.eql(u8, "null", u[0].literal)) {
-                    enum_prefix = try std.fmt.allocPrint(std.heap.page_allocator, ".{s}", .{u[0].literal});
-                }
-            }
-        },
-        else => {},
-    }
+        if (self.context.ctx.default == .none) return;
 
-    if (enum_prefix) |ep| {
-        const val = data.val;
-
-        if (val == .none) return;
-
-        try writer.print(" = {s}", .{
-            switch (val.val) {
-                .null => ep,
-                .string => ep,
-                .array => ".{}", // TODO(Theo): Deal with array with contents
-                .object => ".{}", // TODO(Theo): Deal with map with contents
-                .bool => "false",
-                .integer => "0",
-                .float => "0.0",
-                else => "null",
-            },
-        });
-    }
-}
-
-fn fmtDefault(ty: Default, ctx: Field) std.fmt.Formatter(formatDefault) {
-    return .{ .data = .{ .val = ty, .ctx = ctx } };
-}
-
-fn formatField(
-    data: IndentedValue(Field),
-    comptime fmt: []const u8,
-    options: std.fmt.FormatOptions,
-    writer: anytype,
-) @TypeOf(writer).Error!void {
-    _ = fmt;
-    _ = options;
-    try indent(writer, .{
-        .indent_level = data.indent_level,
-        .add_newline_after = false,
-        .add_newline_before = true,
-    });
-
-    try writer.print("{s}: {}{},", .{
-        data.t.name,
-        fmtSchema(data.t.type.*, data.indent_level),
-        fmtDefault(data.t.default, data.t),
-    });
-}
-
-fn fmtField(ty: Field, indent_level: usize) std.fmt.Formatter(formatField) {
-    return .{ .data = .{ .t = ty, .indent_level = indent_level } };
-}
-
-fn formatFields(
-    data: IndentedValue([]Field),
-    comptime fmt: []const u8,
-    options: std.fmt.FormatOptions,
-    writer: anytype,
-) @TypeOf(writer).Error!void {
-    _ = fmt;
-    _ = options;
-    for (data.t) |f| {
-        try writer.print("{}", .{fmtField(f, data.indent_level)});
-    }
-}
-
-fn fmtFields(ty: []Field, indent_level: usize) std.fmt.Formatter(formatFields) {
-    return .{ .data = .{ .t = ty, .indent_level = indent_level } };
-}
-
-fn formatSymbol(
-    data: IndentedValue([]const u8),
-    comptime fmt: []const u8,
-    options: std.fmt.FormatOptions,
-    writer: anytype,
-) @TypeOf(writer).Error!void {
-    _ = fmt;
-    _ = options;
-    try indent(writer, .{
-        .indent_level = data.indent_level,
-        .add_newline_after = false,
-        .add_newline_before = true,
-    });
-    try writer.print("{s},", .{
-        data.t,
-    });
-}
-
-fn fmtSymbol(ty: []const u8, indent_level: usize) std.fmt.Formatter(formatSymbol) {
-    return .{ .data = .{ .t = ty, .indent_level = indent_level } };
-}
-
-fn formatSymbols(
-    data: IndentedValue(?[][]const u8),
-    comptime fmt: []const u8,
-    options: std.fmt.FormatOptions,
-    writer: anytype,
-) @TypeOf(writer).Error!void {
-    _ = fmt;
-    _ = options;
-    if (data.t) |t| {
-        for (t) |f| {
-            try writer.print("{}", .{fmtSymbol(f, data.indent_level)});
-        }
-    }
-}
-
-fn fmtSymbols(ty: ?[][]const u8, indent_level: usize) std.fmt.Formatter(formatSymbols) {
-    return .{ .data = .{ .t = ty, .indent_level = indent_level } };
-}
-
-fn formatDocs(
-    data: IndentedValue(?[]const u8),
-    comptime fmt: []const u8,
-    options: std.fmt.FormatOptions,
-    writer: anytype,
-) @TypeOf(writer).Error!void {
-    _ = options;
-    if (data.t) |text| {
-        try indent(writer, .{
-            .indent_level = data.indent_level,
-            .add_newline_after = false,
-            .add_newline_before = false,
-        });
-        if (fmt.len != 1) std.fmt.invalidFmtError(fmt, text);
-        const prefix = switch (fmt[0]) {
-            'n' => "// ",
-            'd' => "/// ",
-            '!' => "//! ",
-            else => std.fmt.invalidFmtError(fmt, text),
+        var enum_prefix = switch (self.context.ctx.default.val) {
+            .null => "null",
+            .string => |s| if (std.mem.eql(u8, s, "null"))
+                "null"
+            else if (self.context.ctx.type.* == .@"enum")
+                std.fmt.allocPrint(std.heap.page_allocator, ".{s}", .{s}) catch unreachable
+            else
+                std.fmt.allocPrint(std.heap.page_allocator, ".{s}", .{s}) catch unreachable,
+            else => null,
         };
-        var iterator = std.mem.splitScalar(u8, text, '\n');
-        while (iterator.next()) |line| try writer.print("{s}{s}\n", .{ prefix, line });
-    }
-}
 
-fn fmtDocs(data: ?[]const u8, indent_level: usize) std.fmt.Formatter(formatDocs) {
-    return .{ .data = .{ .t = data, .indent_level = indent_level } };
-}
-
-test formatDocs {
-    const allocator = std.testing.allocator;
-    var arr = std.ArrayList(u8).init(allocator);
-    var writer = arr.writer();
-
-    defer arr.deinit();
-
-    try writer.print("{n}", .{fmtDocs("hello", 0)});
-    try std.testing.expectEqualStrings("// hello\n", arr.items);
-    arr.clearAndFree();
-
-    try writer.print("{d}", .{fmtDocs("hello", 0)});
-    try std.testing.expectEqualStrings("/// hello\n", arr.items);
-    arr.clearAndFree();
-
-    try writer.print("{d}", .{fmtDocs("This is a long\ndocstring", 0)});
-    try std.testing.expectEqualStrings("/// This is a long\n/// docstring\n", arr.items);
-    arr.clearAndFree();
-}
-
-fn formatSchema(
-    data: IndentedValue(Schema),
-    comptime fmt: []const u8,
-    options: std.fmt.FormatOptions,
-    writer: anytype,
-) @TypeOf(writer).Error!void {
-    _ = options;
-    _ = fmt;
-    switch (data.t) {
-        .record => |r| {
-            if (data.indent_level > 0) {
-                // Let's just reference the type when nested
-                return try writer.print("{p}", .{std.zig.fmtId(r.name)});
-            }
-            if (r.doc) |docs| try writer.print("{d}", .{fmtDocs(docs, data.indent_level)});
-            const format = "pub const {p} = struct {{{}\n}};\n\n";
-            try writer.print(format, .{
-                std.zig.fmtId(r.name),
-                fmtFields(r.fields, data.indent_level + 1),
-            });
-        },
-        .@"enum" => |r| {
-            if (data.indent_level > 0) {
-                // Let's just reference the type when nested
-                return try writer.print("{p}", .{std.zig.fmtId(r.name)});
-            }
-            if (r.doc) |docs| try writer.print("{d}", .{fmtDocs(docs, data.indent_level)});
-            try writer.print("pub const {p} = enum {{{}\n}};\n\n", .{
-                std.zig.fmtId(r.name),
-                fmtSymbols(r.symbols, data.indent_level + 1),
-            });
-        },
-        .array => |a| {
-            if (data.indent_level > 0) {
-                return try writer.print("avro.Array({p})", .{fmtSchema(a.items.*, data.indent_level)});
-            }
-        },
-        .map => |m| {
-            if (data.indent_level > 0) {
-                return try writer.print("avro.Map({p})", .{fmtSchema(m.values.*, data.indent_level)});
-            }
-        },
-        .literal => |l| {
-            const v =
-                if (std.mem.eql(u8, l, "long"))
-                    "i64"
-                else if (std.mem.eql(u8, l, "int"))
-                    "i32"
-                else if (std.mem.eql(u8, l, "null"))
-                    "null"
-                else if (std.mem.eql(u8, l, "string"))
-                    "[]const u8"
-                else if (std.mem.eql(u8, l, "bytes"))
-                    "[]u8"
-                else if (std.mem.eql(u8, l, "double"))
-                    "f64"
-                else if (std.mem.eql(u8, l, "float"))
-                    "f32"
-                else if (std.mem.eql(u8, l, "boolean"))
-                    "bool"
-                else
-                    l;
-
-            try writer.writeAll(v);
-        },
-        .@"union" => |un| {
-            if (un.len == 2) {
-                // An union of null|Something is considered a nullable, so we
-                // use that to our advantage;
-                const first = un[0];
-                if (first == .literal) {
-                    if (std.mem.eql(u8, first.literal, "null")) {
-                        return try writer.print("?{}", .{fmtSchema(un[1], data.indent_level)});
+        switch (self.context.ctx.type.*) {
+            .@"union" => |u| {
+                if (u.len > 2) {
+                    if (std.mem.eql(u8, "null", u[0].literal)) {
+                        enum_prefix = std.fmt.allocPrint(std.heap.page_allocator, ".{s}", .{
+                            u[0].literal,
+                        }) catch unreachable;
                     }
                 }
-            }
-            try writer.writeAll("union(enum) { ");
-            for (un) |u| {
-                const name = switch (u) {
-                    .record => |r| r.name,
-                    .literal => |l| l,
-                    .@"enum" => |e| e.name,
-                    else => @panic("Unsupported name for union!"),
-                };
+            },
+            else => {},
+        }
 
-                // Special case for the null value
-                if (std.mem.eql(u8, "null", name)) {
-                    try writer.writeAll("null, ");
-                    continue;
-                }
-                try writer.print("{s}: {}, ", .{ name, fmtSchema(u, data.indent_level) });
-            }
-            try writer.writeAll("}");
-        },
-        else => |e| {
-            std.debug.print("Unexpected typeA {}\n", .{e});
-            @panic("Unexpected Type");
-        },
+        if (enum_prefix) |ep| {
+            const val = self.context.val;
+
+            if (val == .none) return;
+
+            try writer.print(" = {s}", .{
+                switch (val.val) {
+                    .null => ep,
+                    .string => ep,
+                    .array => ".{}", // TODO(Theo): Deal with array with contents
+                    .object => ".{}", // TODO(Theo): Deal with map with contents
+                    .bool => "false",
+                    .integer => "0",
+                    .float => "0.0",
+                    else => "null",
+                },
+            });
+        }
     }
+};
+
+fn fmtDefault(context: DefaultContext) FmtDefault {
+    return .{ .context = context };
 }
 
-fn fmtSchema(data: Schema, indent_level: usize) std.fmt.Formatter(formatSchema) {
-    return .{ .data = .{ .t = data, .indent_level = indent_level } };
+const FmtField = struct {
+    context: IndentedValue(Field),
+
+    pub fn format(
+        self: @This(),
+        writer: anytype,
+    ) !void {
+        try indent(writer, .{
+            .indent_level = self.context.indent_level,
+            .add_newline_after = false,
+            .add_newline_before = true,
+        });
+
+        try writer.print("{s}: {f}{f},", .{
+            self.context.t.name,
+            fmtSchema(.{
+                .t = self.context.t.type.*,
+                .indent_level = self.context.indent_level,
+            }),
+            fmtDefault(.{
+                .ctx = self.context.t,
+                .val = self.context.t.default,
+            }),
+        });
+    }
+};
+
+fn fmtField(context: IndentedValue(Field)) FmtField {
+    return .{ .context = context };
 }
 
-test "format union in schema" {
-    const allocator = std.testing.allocator;
-    const p = try json.parseFromSlice(
-        Schema,
-        allocator,
-        @embedFile("./test-files/Simple.avsc"),
-        parse_opts,
-    );
-    defer p.deinit();
+const FmtFields = struct {
+    context: IndentedValue([]Field),
 
-    var arr = std.ArrayList(u8).init(allocator);
-    var writer = arr.writer();
+    pub fn format(
+        self: @This(),
+        writer: *Writer,
+    ) !void {
+        for (self.context.t) |f| {
+            try writer.print("{f}", .{fmtField(.{
+                .t = f,
+                .indent_level = self.context.indent_level,
+            })});
+        }
+    }
+};
 
-    defer arr.deinit();
-
-    const expected =
-        \\/// A linked list of longs
-        \\pub const LongList = struct {
-        \\    value: i64,
-        \\    next: ?LongList = null,
-        \\};
-        \\
-        \\
-    ;
-
-    try writer.print("{n}", .{fmtSchema(p.value, 0)});
-    try std.testing.expectEqualStrings(expected, arr.items);
+fn fmtFields(context: IndentedValue([]Field)) FmtFields {
+    return .{ .context = context };
 }
 
-test "format more complex union in schema" {
-    const allocator = std.testing.allocator;
-    const p = try json.parseFromSlice(
-        Schema,
-        allocator,
-        @embedFile("./test-files/RecordWithUnion.avsc"),
-        parse_opts,
-    );
-    defer p.deinit();
+const FmtSymbol = struct {
+    context: IndentedValue([]const u8),
 
-    var arr = std.ArrayList(u8).init(allocator);
-    var writer = arr.writer();
+    pub fn format(
+        self: @This(),
+        writer: *Writer,
+    ) !void {
+        try indent(writer, .{
+            .indent_level = self.context.indent_level,
+            .add_newline_after = false,
+            .add_newline_before = true,
+        });
+        try writer.print("{s},", .{
+            self.context.t,
+        });
+    }
+};
 
-    defer arr.deinit();
-
-    const expected =
-        \\/// A linked list of longs
-        \\pub const LongList = struct {
-        \\    next: union(enum) { null, LongList1: LongList1, LongList2: LongList2, } = .null,
-        \\};
-        \\
-        \\
-    ;
-
-    try writer.print("{n}", .{fmtSchema(p.value, 0)});
-    try std.testing.expectEqualStrings(expected, arr.items);
+fn fmtSymbol(context: IndentedValue([]const u8)) FmtSymbol {
+    return .{ .context = context };
 }
 
-fn writeSchema(schema: Schema, map: *std.StringHashMap(Schema), writer: anytype) !void {
+const FmtSymbols = struct {
+    context: IndentedValue(?[][]const u8),
+
+    pub fn format(
+        self: @This(),
+        writer: *Writer,
+    ) !void {
+        if (self.context.t) |t| {
+            for (t) |f| {
+                try writer.print("{f}", .{fmtSymbol(.{
+                    .t = f,
+                    .indent_level = self.context.indent_level,
+                })});
+            }
+        }
+    }
+};
+
+fn fmtSymbols(context: IndentedValue(?[][]const u8)) FmtSymbols {
+    return .{ .context = context };
+}
+
+const FmtDocs = struct {
+    context: Context,
+
+    pub const Context = struct {
+        val: IndentedValue(?[]const u8),
+        type: enum {
+            comment,
+            docstring,
+            top_level,
+        },
+    };
+
+    pub fn format(
+        self: @This(),
+        writer: *Writer,
+    ) !void {
+        if (self.context.val.t) |text| {
+            try indent(writer, .{
+                .indent_level = self.context.val.indent_level,
+                .add_newline_after = false,
+                .add_newline_before = false,
+            });
+
+            const prefix = switch (self.context.type) {
+                .comment => "// ",
+                .docstring => "/// ",
+                .top_level => "//! ",
+            };
+            var iterator = std.mem.splitScalar(u8, text, '\n');
+            while (iterator.next()) |line| try writer.print("{s}{s}\n", .{ prefix, line });
+        }
+    }
+
+    test FmtDocs {
+        const allocator = std.testing.allocator;
+        var w: Writer.Allocating = .init(allocator);
+        defer w.deinit();
+
+        try w.writer.print("{f}", .{fmtDocs(.{
+            .val = .{ .t = "hello", .indent_level = 0 },
+            .type = .comment,
+        })});
+        try std.testing.expectEqualStrings("// hello\n", w.written());
+        w.clearRetainingCapacity();
+
+        try w.writer.print("{f}", .{fmtDocs(.{
+            .val = .{ .t = "hello", .indent_level = 0 },
+            .type = .docstring,
+        })});
+        try std.testing.expectEqualStrings("/// hello\n", w.written());
+        w.clearRetainingCapacity();
+
+        try w.writer.print("{f}", .{fmtDocs(.{
+            .val = .{ .t = "This is a long\ndocstring", .indent_level = 0 },
+            .type = .docstring,
+        })});
+        try std.testing.expectEqualStrings("/// This is a long\n/// docstring\n", w.written());
+        w.clearRetainingCapacity();
+    }
+};
+
+fn fmtDocs(context: FmtDocs.Context) FmtDocs {
+    return .{ .context = context };
+}
+
+const FmtSchema = struct {
+    context: IndentedValue(Schema),
+
+    pub fn format(
+        self: @This(),
+        writer: *Writer,
+    ) !void {
+        switch (self.context.t) {
+            .record => |r| {
+                if (self.context.indent_level > 0) {
+                    // Let's just reference the type when nested
+                    return try writer.print("{f}", .{std.zig.fmtId(r.name)});
+                }
+                if (r.doc) |docs| try writer.print("{f}", .{fmtDocs(.{
+                    .val = .{
+                        .t = docs,
+                        .indent_level = self.context.indent_level,
+                    },
+                    .type = .docstring,
+                })});
+                try writer.print("pub const {f} = struct {{{f}\n}};\n\n", .{
+                    std.zig.fmtId(r.name),
+                    fmtFields(.{
+                        .t = r.fields,
+                        .indent_level = self.context.indent_level + 1,
+                    }),
+                });
+            },
+            .@"enum" => |r| {
+                if (self.context.indent_level > 0) {
+                    // Let's just reference the type when nested
+                    return try writer.print("{f}", .{std.zig.fmtId(r.name)});
+                }
+                if (r.doc) |docs| try writer.print("{f}", .{fmtDocs(.{
+                    .val = .{
+                        .t = docs,
+                        .indent_level = self.context.indent_level,
+                    },
+                    .type = .docstring,
+                })});
+                try writer.print("pub const {f} = enum {{{f}\n}};\n\n", .{
+                    std.zig.fmtId(r.name),
+                    fmtSymbols(.{ .t = r.symbols, .indent_level = self.context.indent_level + 1 }),
+                });
+            },
+            .array => |a| {
+                if (self.context.indent_level > 0) {
+                    return try writer.print(
+                        "avro.Array({f})",
+                        .{fmtSchema(.{
+                            .t = a.items.*,
+                            .indent_level = self.context.indent_level,
+                        })},
+                    );
+                }
+            },
+            .map => |m| {
+                if (self.context.indent_level > 0) {
+                    return try writer.print("avro.Map({f})", .{
+                        fmtSchema(.{
+                            .t = m.values.*,
+                            .indent_level = self.context.indent_level,
+                        }),
+                    });
+                }
+            },
+            .literal => |l| {
+                const v =
+                    if (std.mem.eql(u8, l, "long"))
+                        "i64"
+                    else if (std.mem.eql(u8, l, "int"))
+                        "i32"
+                    else if (std.mem.eql(u8, l, "null"))
+                        "null"
+                    else if (std.mem.eql(u8, l, "string"))
+                        "[]const u8"
+                    else if (std.mem.eql(u8, l, "bytes"))
+                        "[]u8"
+                    else if (std.mem.eql(u8, l, "double"))
+                        "f64"
+                    else if (std.mem.eql(u8, l, "float"))
+                        "f32"
+                    else if (std.mem.eql(u8, l, "boolean"))
+                        "bool"
+                    else
+                        l;
+
+                try writer.writeAll(v);
+            },
+            .@"union" => |un| {
+                if (un.len == 2) {
+                    // An union of null|Something is considered a nullable, so we
+                    // use that to our advantage;
+                    const first = un[0];
+                    if (first == .literal) {
+                        if (std.mem.eql(u8, first.literal, "null")) {
+                            return try writer.print("?{f}", .{fmtSchema(.{
+                                .t = un[1],
+                                .indent_level = self.context.indent_level,
+                            })});
+                        }
+                    }
+                }
+                try writer.writeAll("union(enum) { ");
+                for (un) |u| {
+                    const name = switch (u) {
+                        .record => |r| r.name,
+                        .literal => |l| l,
+                        .@"enum" => |e| e.name,
+                        else => @panic("Unsupported name for union!"),
+                    };
+
+                    // Special case for the null value
+                    if (std.mem.eql(u8, "null", name)) {
+                        try writer.writeAll("null, ");
+                        continue;
+                    }
+                    try writer.print("{s}: {f}, ", .{ name, fmtSchema(.{
+                        .t = u,
+                        .indent_level = self.context.indent_level,
+                    }) });
+                }
+                try writer.writeAll("}");
+            },
+            else => |e| {
+                std.debug.print("Unexpected typeA {}\n", .{e});
+                @panic("Unexpected Type");
+            },
+        }
+    }
+    test "format union in schema" {
+        const allocator = std.testing.allocator;
+        const p = try json.parseFromSlice(
+            Schema,
+            allocator,
+            @embedFile("./test-files/Simple.avsc"),
+            parse_opts,
+        );
+        defer p.deinit();
+
+        var w: Writer.Allocating = .init(allocator);
+        defer w.deinit();
+
+        const expected =
+            \\/// A linked list of longs
+            \\pub const LongList = struct {
+            \\    value: i64,
+            \\    next: ?LongList = null,
+            \\};
+            \\
+            \\
+        ;
+
+        try w.writer.print("{f}", .{fmtSchema(.{ .t = p.value, .indent_level = 0 })});
+        try std.testing.expectEqualStrings(expected, w.written());
+    }
+
+    test "format more complex union in schema" {
+        const allocator = std.testing.allocator;
+        const p = try json.parseFromSlice(
+            Schema,
+            allocator,
+            @embedFile("./test-files/RecordWithUnion.avsc"),
+            parse_opts,
+        );
+        defer p.deinit();
+
+        var w: Writer.Allocating = .init(allocator);
+        defer w.deinit();
+        
+        const expected =
+            \\/// A linked list of longs
+            \\pub const LongList = struct {
+            \\    next: union(enum) { null, LongList1: LongList1, LongList2: LongList2, } = .null,
+            \\};
+            \\
+            \\
+        ;
+
+        try w.writer.print("{f}", .{fmtSchema(.{ .t = p.value, .indent_level = 0 })});
+        try std.testing.expectEqualStrings(expected, w.written());
+    }
+};
+
+fn fmtSchema(context: IndentedValue(Schema)) FmtSchema {
+    return .{ .context = context };
+}
+
+fn writeSchema(writer: *Writer, schema: Schema, map: *std.StringHashMap(Schema)) !void {
     if (schema != .record) return error.NotARecord;
 
-    try writer.print("{!!}\n", .{
-        fmtDocs("This is a generated file - DO NOT EDIT!", 0),
+    try writer.print("{f}\n", .{
+        fmtDocs(.{ .val = .{ .t = "This is a generated file - DO NOT EDIT!", .indent_level = 0 }, .type = .top_level }),
     });
 
     try writer.print("const std = @import(\"std\");\n", .{});
@@ -590,7 +651,10 @@ fn writeSchema(schema: Schema, map: *std.StringHashMap(Schema), writer: anytype)
 
     var it = map.iterator();
     while (it.next()) |entry| {
-        try writer.print("{}", .{fmtSchema(entry.value_ptr.*, 0)});
+        try writer.print("{f}", .{fmtSchema(.{
+            .t = entry.value_ptr.*,
+            .indent_level = 0,
+        })});
     }
 }
 
@@ -605,10 +669,8 @@ test writeSchema {
     );
     defer p.deinit();
 
-    var arr = std.ArrayList(u8).init(allocator);
-    var writer = arr.writer();
-
-    defer arr.deinit();
+    var writer: Writer.Allocating = .init(allocator);
+    defer writer.deinit();
 
     const expected = try std.fs.cwd().readFileAlloc(
         allocator,
@@ -623,11 +685,11 @@ test writeSchema {
     try accumulateSchemas(&map, p.value);
     try put(&map, p.value);
 
-    writeSchema(p.value, &map, &writer) catch |err| {
+    writeSchema(&writer.writer, p.value, &map) catch |err| {
         std.debug.print("\n\nERRRR {}\n\n", .{err});
     };
 
-    try std.testing.expectEqualStrings(expected, arr.items);
+    try std.testing.expectEqualStrings(expected, writer.written());
 }
 
 fn put(map: *std.StringHashMap(Schema), schema: Schema) !void {
@@ -803,6 +865,9 @@ pub fn main() !void {
         var file = try cwd.createFile(ns.out_path, .{});
         defer file.close();
 
-        try writeSchema(ns.main_schema, &ns.schemas, file.writer());
+        var file_buffer: [1024]u8 = undefined;
+        var w = file.writer(&file_buffer);
+
+        try writeSchema(&w.interface, ns.main_schema, &ns.schemas);
     }
 }
