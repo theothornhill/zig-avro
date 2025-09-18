@@ -6,6 +6,8 @@ pub const Writer = @import("writer.zig");
 pub const iter = @import("iterable.zig");
 pub const Generator = @import("generator/generator.zig");
 
+const Io = std.Io;
+
 pub fn Map(comptime T: type) type {
     return struct {
         array: Array(Entry) = .{},
@@ -33,8 +35,7 @@ test "array example from readme" {
     };
 
     var buf: [50]u8 = undefined;
-    var fbs = std.io.fixedBufferStream(&buf);
-    var writer = fbs.writer();
+    var writer: Io.Writer = .fixed(&buf);
 
     var ids = [_]i32{ 11, 23, 99, 45, 22, 84, 92, 88, 24, 1, 8 };
     var t = FootballTeam{
@@ -94,8 +95,7 @@ test "Map iteration" {
     t.properties.array.iterable = propIterable;
 
     var buf: [100]u8 = undefined;
-    var fbs = std.io.fixedBufferStream(&buf);
-    var writer = fbs.writer();
+    var writer: Io.Writer = .fixed(&buf);
 
     const written = try encode(T, &t, &writer);
 
@@ -137,10 +137,10 @@ test "uninitialized iterators are bad" {
     try std.testing.expectError(error.NoIterator, it.next());
 }
 
-pub fn encode(comptime T: type, self: *T, writer: anytype) !usize {
+pub fn encode(comptime T: type, self: *T, writer: *Io.Writer) !usize {
     return try Writer.write(T, writer, self);
 }
 
 test {
-    @import("std").testing.refAllDecls(@This());
+    @import("std").testing.refAllDeclsRecursive(@This());
 }

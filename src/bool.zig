@@ -1,4 +1,5 @@
 const std = @import("std");
+const Writer = std.Io.Writer;
 
 pub fn read(dst: *bool, buf: []const u8) !usize {
     if (buf.len < 1) {
@@ -14,7 +15,7 @@ pub fn read(dst: *bool, buf: []const u8) !usize {
     return 1;
 }
 
-pub fn write(writer: anytype, value: bool) !usize {
+pub fn write(writer: *Writer, value: bool) !usize {
     try writer.writeByte(if (value) 1 else 0);
     return 1;
 }
@@ -36,9 +37,7 @@ test read {
 
 test write {
     var buf: [2]u8 = undefined;
-
-    var fbs = std.io.fixedBufferStream(&buf);
-    var writer = fbs.writer();
+    var writer: Writer = .fixed(&buf);
 
     const firstWrite = try write(&writer, false);
     try std.testing.expectEqual(1, firstWrite);

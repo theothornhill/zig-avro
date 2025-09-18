@@ -296,7 +296,7 @@ const FmtField = struct {
 
     pub fn format(
         self: @This(),
-        writer: anytype,
+        writer: *Writer,
     ) !void {
         try indent(writer, .{
             .indent_level = self.context.indent_level,

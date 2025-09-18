@@ -2,6 +2,7 @@ const std = @import("std");
 const errors = @import("errors.zig");
 const leb = std.leb;
 const ReadError = errors.ReadError;
+const Writer = std.Io.Writer;
 
 pub fn readInt(dst: *i32, buf: []const u8) !usize {
     return readNumber(i32, dst, buf);
@@ -11,11 +12,11 @@ pub fn readLong(dst: *i64, buf: []const u8) !usize {
     return readNumber(i64, dst, buf);
 }
 
-pub fn writeInt(writer: anytype, value: i32) !usize {
+pub fn writeInt(writer: *Writer, value: i32) !usize {
     return try writeNumber(i32, writer, value);
 }
 
-pub fn writeLong(writer: anytype, value: i64) !usize {
+pub fn writeLong(writer: *Writer, value: i64) !usize {
     return try writeNumber(i64, writer, value);
 }
 
@@ -27,12 +28,12 @@ pub fn readDouble(dst: *f64, buf: []const u8) !usize {
     return readFloatingPointNumber(f64, dst, buf);
 }
 
-pub fn writeFloat(writer: anytype, value: f32) !usize {
+pub fn writeFloat(writer: *Writer, value: f32) !usize {
     try writeFloatingPointNumber(f32, writer, value);
     return @sizeOf(f32);
 }
 
-pub fn writeDouble(writer: anytype, value: f64) !usize {
+pub fn writeDouble(writer: *Writer, value: f64) !usize {
     try writeFloatingPointNumber(f64, writer, value);
     return @sizeOf(f64);
 }
@@ -89,7 +90,7 @@ inline fn readNumber(comptime T: type, dst: *T, buf: []const u8) !usize {
 }
 
 /// Vendored and modified from std.leb128 to return the number of bytes written.
-pub fn writeUleb128(writer: anytype, arg: anytype) !usize {
+pub fn writeUleb128(writer: *Writer, arg: anytype) !usize {
     const Arg = @TypeOf(arg);
     const Int = switch (Arg) {
         comptime_int => std.math.IntFittingRange(arg, arg),
@@ -111,7 +112,7 @@ pub fn writeUleb128(writer: anytype, arg: anytype) !usize {
     return size;
 }
 
-inline fn writeNumber(comptime T: type, writer: anytype, value: T) !usize {
+inline fn writeNumber(comptime T: type, writer: *Writer, value: T) !usize {
     const U: type = switch (T) {
         i32 => u32,
         i64 => u64,
@@ -147,13 +148,13 @@ inline fn readFloatingPointNumber(comptime T: type, dst: *T, buf: []const u8) !u
         return ReadError.UnexpectedEndOfBuffer;
     }
 
-    var stream = std.io.fixedBufferStream(buf);
-    dst.* = @bitCast(try stream.reader().readInt(U, .big));
+    var stream = std.Io.Reader.fixed(buf);
+    dst.* = @bitCast(try stream.takeInt(U, .big));
 
     return @sizeOf(U);
 }
 
-inline fn writeFloatingPointNumber(comptime T: type, writer: anytype, value: T) !void {
+inline fn writeFloatingPointNumber(comptime T: type, writer: *Writer, value: T) !void {
     const U: type = switch (T) {
         f32 => u32,
         f64 => u64,
@@ -191,14 +192,13 @@ test "write float and double" {
 
     var buf: [4]u8 = undefined;
 
-    var fbs = std.io.fixedBufferStream(&buf);
-    var writer = fbs.writer();
+    var writer: Writer = .fixed(&buf);
 
     _ = try writeFloat(&writer, 3.141592);
     try std.testing.expectEqualSlices(u8, res, &buf);
 
     res = &[_]u8{ 0xC0, 0x49, 0x0F, 0xD8 };
-    fbs.reset();
+    _ = writer.consumeAll();
 
     const fwritten = try writeFloat(&writer, -3.141592);
     try std.testing.expectEqual(4, fwritten);
@@ -207,8 +207,7 @@ test "write float and double" {
     const res2 = &[_]u8{ 0x40, 0x09, 0x21, 0xFB, 0x54, 0x44, 0x2D, 0x18 };
 
     var buf2: [8]u8 = undefined;
-    var fbs2 = std.io.fixedBufferStream(&buf2);
-    var writer2 = fbs2.writer();
+    var writer2: Writer = .fixed(&buf2);
 
     const written = try writeDouble(&writer2, 3.141592653589793115997963468544185161590576171875);
     try std.testing.expectEqual(8, written);
@@ -265,8 +264,7 @@ test "write int and long" {
     const res = &[_]u8{ 0xAC, 0x02 };
 
     var buf: [2]u8 = undefined;
-    var fbs = std.io.fixedBufferStream(&buf);
-    var writer = fbs.writer();
+    var writer: Writer = .fixed(&buf);
 
     _ = try writeInt(&writer, 150);
     try std.testing.expectEqualSlices(u8, res, &buf);
@@ -274,20 +272,17 @@ test "write int and long" {
     const negativeTwo = &[_]u8{0b00000011};
 
     var negBuf: [1]u8 = undefined;
-    var nfbs = std.io.fixedBufferStream(&negBuf);
-    var writer2 = nfbs.writer();
+    var writer2: Writer = .fixed(&negBuf);
     _ = try writeLong(&writer2, -2);
     try std.testing.expectEqualSlices(u8, negativeTwo, &negBuf);
 
     var negBuf2: [0]u8 = undefined;
-    var nfbs2 = std.io.fixedBufferStream(&negBuf2);
-    var writer3 = nfbs2.writer();
-    try std.testing.expectError(error.NoSpaceLeft, writeLong(&writer3, -2));
+    var writer3: Writer = .fixed(&negBuf2);
+    try std.testing.expectError(error.WriteFailed, writeLong(&writer3, -2));
 
     var buf3: [0]u8 = undefined;
-    var fbs3 = std.io.fixedBufferStream(&buf3);
-    var writer4 = fbs3.writer();
-    try std.testing.expectError(error.NoSpaceLeft, writeLong(&writer4, 1));
+    var writer4: Writer = .fixed(&buf3);
+    try std.testing.expectError(error.WriteFailed, writeLong(&writer4, 1));
 }
 
 test zigZagEncode {

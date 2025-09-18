@@ -6,8 +6,10 @@ const reader = @import("reader.zig");
 const WriteError = @import("errors.zig").WriteError;
 const root = @import("root.zig");
 const iter = @import("iterable.zig");
+const Writer = std.Io.Writer;
 
-pub fn write(comptime T: type, writer: anytype, v: *T) !usize {
+
+pub fn write(comptime T: type, writer: *Writer, v: *T) !usize {
     switch (T) {
         bool => return try boolean.write(writer, v.*),
         i32 => return try number.writeInt(writer, v.*),
@@ -35,7 +37,7 @@ pub fn write(comptime T: type, writer: anytype, v: *T) !usize {
     }
 }
 
-fn writeArray(comptime A: type, writer: anytype, a: *A) !usize {
+fn writeArray(comptime A: type, writer: *Writer, a: *A) !usize {
     var pos: usize = 0;
     var it = a.iterable.iterator();
     if (@hasField(A, "len")) {
@@ -59,7 +61,7 @@ fn writeArray(comptime A: type, writer: anytype, a: *A) !usize {
     return pos + 1;
 }
 
-fn writeOptional(comptime O: type, writer: anytype, o: *?O) !usize {
+fn writeOptional(comptime O: type, writer: *Writer, o: *?O) !usize {
     if (o.*) |*v| {
         try writer.writeByte(2);
         return 1 + try write(O, writer, v);
@@ -68,11 +70,11 @@ fn writeOptional(comptime O: type, writer: anytype, o: *?O) !usize {
     return 1;
 }
 
-fn writeFixed(len: comptime_int, writer: anytype, v: *[len]u8) !usize {
+fn writeFixed(len: comptime_int, writer: *Writer, v: *[len]u8) !usize {
     return try writer.write(v);
 }
 
-fn writeUnion(comptime U: type, writer: anytype, u: *U) !usize {
+fn writeUnion(comptime U: type, writer: *Writer, u: *U) !usize {
     const tagId: i32 = @intFromEnum(u.*);
     inline for (@typeInfo(U).@"union".fields, 0..) |tag, id| {
         if (tagId == id) {
@@ -86,11 +88,11 @@ fn writeUnion(comptime U: type, writer: anytype, u: *U) !usize {
     unreachable;
 }
 
-fn writeEnum(comptime E: type, writer: anytype, e: E) !usize {
+fn writeEnum(comptime E: type, writer: *Writer, e: E) !usize {
     return try number.writeInt(writer, @as(i32, @intFromEnum(e)));
 }
 
-fn writeRecord(comptime R: type, writer: anytype, r: *R) !usize {
+fn writeRecord(comptime R: type, writer: *Writer, r: *R) !usize {
     var written: usize = 0;
     inline for (@typeInfo(R).@"struct".fields) |field|
         written += try write(field.type, writer, &@field(r, field.name));
@@ -99,8 +101,7 @@ fn writeRecord(comptime R: type, writer: anytype, r: *R) !usize {
 
 test "write array with unknown length" {
     var writeBuffer: [100]u8 = undefined;
-    var fbs = std.io.fixedBufferStream(&writeBuffer);
-    var writer = fbs.writer();
+    var writer: Writer = .fixed(&writeBuffer);
 
     const Record = struct {
         list: struct {
@@ -116,8 +117,7 @@ test "write array with unknown length" {
 
 test "write array with known length" {
     var buf: [100]u8 = undefined;
-    var fbs = std.io.fixedBufferStream(&buf);
-    var writer = fbs.writer();
+    var writer: Writer = .fixed(&buf);
 
     const Record = struct {
         list: struct {
@@ -134,8 +134,7 @@ test "write array with known length" {
 
 test "write optional" {
     var writeBuffer: [100]u8 = undefined;
-    var fbs = std.io.fixedBufferStream(&writeBuffer);
-    var writer = fbs.writer();
+    var writer: Writer = .fixed(&writeBuffer);
 
     const Record = struct { troolean: ?bool };
     var r: Record = .{ .troolean = null };
@@ -144,7 +143,7 @@ test "write optional" {
     try std.testing.expectEqual(0, writeBuffer[0]);
     r.troolean = true;
 
-    fbs.reset();
+    _ = writer.consumeAll();
     written = try write(Record, &writer, &r);
     try std.testing.expectEqual(2, written);
     try std.testing.expectEqual(2, writeBuffer[0]);
@@ -153,8 +152,7 @@ test "write optional" {
 
 test "write fixed" {
     var writeBuffer: [100]u8 = undefined;
-    var fbs = std.io.fixedBufferStream(&writeBuffer);
-    var writer = fbs.writer();
+    var writer: Writer = .fixed(&writeBuffer);
 
     var txt: [7]u8 = undefined;
     @memcpy(&txt, "Bonjour");
@@ -174,8 +172,7 @@ test "write record with union" {
         measurement: Temperature,
     };
     var writeBuffer: [100]u8 = undefined;
-    var fbs = std.io.fixedBufferStream(&writeBuffer);
-    var writer = fbs.writer();
+    var writer: Writer = .fixed(&writeBuffer);
 
     var r1: Record = .{
         .measurement = .unmeasured,
@@ -204,8 +201,7 @@ test "write record with enum" {
         cooler: Language,
     };
     var writeBuffer: [100]u8 = undefined;
-    var fbs = std.io.fixedBufferStream(&writeBuffer);
-    var writer = fbs.writer();
+    var writer: Writer = .fixed(&writeBuffer);
 
     var r1: Record = .{
         .cool = .go,
@@ -234,8 +230,7 @@ test "write record of primitives" {
         height: f64,
     };
     var buf: [100]u8 = undefined;
-    var fbs = std.io.fixedBufferStream(&buf);
-    var writer = fbs.writer();
+    var writer: Writer = .fixed(&buf);
     var r1: Record = .{
         .happy = true,
         .arms = 1_000_000,

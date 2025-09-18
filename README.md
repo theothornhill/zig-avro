@@ -32,8 +32,7 @@ const avro = @import("zig-avro");
 const Record = struct { b: bool = false };
 
 var buf: [10]u8 = undefined;
-var fbs = std.io.fixedBufferStream(&buf);
-var writer = fbs.writer();
+var writer: Writer = .fixed(&buf);
 
 var r = Record{ .b = true };
 
@@ -54,8 +53,7 @@ const FootballTeam = struct {
 };
 
 var buf: [50]u8 = undefined;
-var fbs = std.io.fixedBufferStream(&buf);
-var writer = fbs.writer();
+var writer: Writer = .fixed(&buf);
 
 var t = FootballTeam{
     .name = "Zig Avro Oldboys",

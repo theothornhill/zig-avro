@@ -1,5 +1,6 @@
 const number = @import("number.zig");
 const std = @import("std");
+const Writer = std.Io.Writer;
 
 /// Read a string from input `in`.
 /// Returns slice of `in` after end of string.
@@ -33,7 +34,7 @@ test read {
     try std.testing.expectEqualStrings("DIG", out);
 }
 
-pub inline fn write(writer: anytype, value: []const u8) !usize {
+pub inline fn write(writer: *Writer, value: []const u8) !usize {
     const num_len = try number.writeLong(writer, @intCast(value.len));
     const str_len = try writer.write(value);
     return num_len + str_len;
@@ -42,17 +43,17 @@ pub inline fn write(writer: anytype, value: []const u8) !usize {
 test write {
     const res = "hi";
     var buf: [3]u8 = undefined;
-    var fbs = std.io.fixedBufferStream(&buf);
-    var writer = fbs.writer();
+    var writer: Writer = .fixed(&buf);
 
     const out = try write(&writer, res);
     try std.testing.expectEqual(3, out);
     try std.testing.expectEqualStrings(res, buf[1..]);
 
     const res2 = "🤪🤑🤑🤑🤑";
+
     var buf2: [res2.len + 1]u8 = undefined;
-    var fbs2 = std.io.fixedBufferStream(&buf2);
-    var writer2 = fbs2.writer();
+    var writer2: Writer = .fixed(&buf2);
+
     const out2 = try write(&writer2, res2);
     try std.testing.expectEqual(res2.len + 1, out2);
     try std.testing.expectEqualSlices(u8, res2, buf2[1..]);
@@ -60,8 +61,7 @@ test write {
 
 test "can write then read" {
     var buf: [10]u8 = undefined;
-    var fbs = std.io.fixedBufferStream(&buf);
-    var writer = fbs.writer();
+    var writer: Writer = .fixed(&buf);
 
     const msg = "MEEP";
     _ = try write(&writer, msg);
