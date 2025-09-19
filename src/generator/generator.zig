@@ -869,5 +869,6 @@ pub fn main() !void {
         var w = file.writer(&file_buffer);
 
         try writeSchema(&w.interface, ns.main_schema, &ns.schemas);
+        try w.interface.flush();
     }
 }
