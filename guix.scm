@@ -1,1 +1,0 @@
-.guix/packages/zig-avro-package.scm
