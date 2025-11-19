@@ -75,7 +75,7 @@ pub fn main() !void {
             "{s}/{x}",
             .{
                 args.outputDir,
-                &hashbuf,
+                hashbuf[0..4],
             },
         );
 
@@ -86,7 +86,7 @@ pub fn main() !void {
             "{s}/{x}/{s}.{s}.zig",
             .{
                 args.outputDir,
-                &hashbuf,
+                hashbuf[0..4],
                 p.value.record.namespace orelse return error.MissingDefaultNamespace,
                 p.value.record.name,
             },
