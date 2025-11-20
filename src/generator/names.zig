@@ -11,21 +11,3 @@ pub const NS = struct {
             .{ .namespace = specified_namespace, .name = specified_name };
     }
 };
-
-pub fn typeName(allocator: std.mem.Allocator, id: []const u8) ![:0]const u8 {
-    var arena: std.heap.ArenaAllocator = .init(allocator);
-    defer arena.deinit();
-    return if (isValidIdentifier(id))
-        try std.fmt.allocPrintSentinel(allocator, "{s}", .{id}, 0)
-    else
-        try std.fmt.allocPrintSentinel(allocator, "@\"{s}\"", .{id}, 0);
-}
-
-fn isValidIdentifier(id: []const u8) bool {
-    for (id, 0..) |byte, index| switch (byte) {
-        'A'...'Z', '_', 'a'...'z' => {},
-        '0'...'9' => if (index == 0) return false,
-        else => return false,
-    };
-    return !std.zig.Token.keywords.has(id);
-}

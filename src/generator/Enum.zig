@@ -47,12 +47,17 @@ pub fn typeRef(
         return if (self.namespace) |ns|
             try std.fmt.allocPrintSentinel(
                 allocator,
-                "@\"{s}\".{s}",
-                .{ ns, try names.typeName(allocator, self.name) },
+                "@\"{s}\".{f}",
+                .{ ns, std.zig.fmtId(self.name) },
                 0,
             )
         else
-            try names.typeName(allocator, self.name);
+            try std.fmt.allocPrintSentinel(
+                allocator,
+                "{f}",
+                .{std.zig.fmtId(self.name)},
+                0,
+            );
     }
 
     return self.source(allocator);
