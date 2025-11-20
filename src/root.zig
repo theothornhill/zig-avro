@@ -120,10 +120,10 @@ pub fn Array(comptime T: type) type {
 fn Noterator(comptime T: type) type {
     return struct {
         pub fn iterable() iter.Iterable(T) {
-            return iter.Iterable(T){ .ptr = @constCast(@ptrCast(&0)), .iteratorFn = @This().iterator };
+            return iter.Iterable(T){ .ptr = @ptrCast(@constCast(&0)), .iteratorFn = @This().iterator };
         }
         pub fn iterator(_: *anyopaque) iter.Iterator(T) {
-            return iter.Iterator(T){ .ptr = @constCast(@ptrCast(&0)), .nextFn = @This().next };
+            return iter.Iterator(T){ .ptr = @ptrCast(@constCast(&0)), .nextFn = @This().next };
         }
         pub fn next(_: *anyopaque) !?*T {
             return error.NoIterator;

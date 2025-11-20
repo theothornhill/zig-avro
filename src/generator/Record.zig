@@ -6,6 +6,7 @@ const s = @import("Schema.zig");
 const Schema = s.Schema;
 const Field = @import("Field.zig");
 const Default = @import("Default.zig").Default;
+const names = @import("names.zig");
 
 name: []const u8,
 namespace: ?[]const u8 = null,
@@ -19,9 +20,8 @@ const FmtFields = struct {
 
     pub fn format(self: @This(), allocator: std.mem.Allocator) ![]const u8 {
         var w: Writer.Allocating = .init(allocator);
-        for (self.fields) |f| {
+        for (self.fields) |f|
             try w.writer.print("{s}\n", .{try f.source(allocator)});
-        }
         return w.written();
     }
 };
@@ -40,10 +40,31 @@ pub fn source(
     return try std.fmt.allocPrintSentinel(allocator, fmt, .{fields}, 0);
 }
 
+pub fn typeRef(
+    self: @This(),
+    allocator: std.mem.Allocator,
+    comptime top_level: bool,
+) ![:0]const u8 {
+    if (self.name.len > 0 and !top_level) {
+        return if (self.namespace) |ns|
+            try std.fmt.allocPrintSentinel(
+                allocator,
+                "@\"{s}\".{s}",
+                .{ ns, try names.typeName(allocator, self.name) },
+                0,
+            )
+        else
+            try names.typeName(allocator, self.name);
+    }
+
+    return self.source(allocator, top_level);
+}
+
 test "Record" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
+    s.SchemaMap = .init(allocator);
 
     const ns = "com.example.record";
     var t1: Schema = .{ .literal = .{ .value = "long", .namespace = ns } };
@@ -67,16 +88,13 @@ test "Record" {
     };
     var r: @This() = .{
         .name = "Foo",
-        .namespace = ns,
+        .namespace = "someNamespace",
         .doc = "These are some docs",
         .fields = &fields,
     };
 
     var w: Writer.Allocating = .init(allocator);
     defer w.deinit();
-
-    var schema: Schema = .{ .record = r };
-    try s.expectNamespacing(&schema);
 
     const a = try Ast.parse(allocator, try r.source(allocator, false), .zig);
     try a.render(allocator, &w.writer, .{});

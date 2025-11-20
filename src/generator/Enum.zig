@@ -3,6 +3,7 @@ const Writer = std.Io.Writer;
 const Ast = std.zig.Ast;
 
 const Default = @import("Default.zig").Default;
+const names = @import("names.zig");
 
 name: []const u8,
 namespace: ?[]const u8 = null,
@@ -33,9 +34,28 @@ pub fn source(self: @This(), allocator: std.mem.Allocator) ![:0]const u8 {
     return try std.fmt.allocPrintSentinel(
         allocator,
         "enum {{ {s} }}",
-        .{ symbols },
+        .{symbols},
         0,
     );
+}
+
+pub fn typeRef(
+    self: @This(),
+    allocator: std.mem.Allocator,
+) ![:0]const u8 {
+    if (self.name.len > 0) {
+        return if (self.namespace) |ns|
+            try std.fmt.allocPrintSentinel(
+                allocator,
+                "@\"{s}\".{s}",
+                .{ ns, try names.typeName(allocator, self.name) },
+                0,
+            )
+        else
+            try names.typeName(allocator, self.name);
+    }
+
+    return self.source(allocator);
 }
 
 test "Enum" {

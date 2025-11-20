@@ -19,7 +19,7 @@ pub fn source(
     return try std.fmt.allocPrintSentinel(
         allocator,
         "avro.Array({s}){s}",
-        .{ try self.items.source(allocator, top_level), default },
+        .{ try self.items.source(allocator, top_level, true), default },
         0,
     );
 }

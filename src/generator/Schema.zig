@@ -11,24 +11,24 @@ const Array = @import("Array.zig");
 const Map = @import("Map.zig");
 const Fixed = @import("Fixed.zig");
 const Literal = @import("Literal.zig");
+const names = @import("names.zig");
 
-pub var SchemaMap: std.StringHashMap(Schema) = .init(std.heap.page_allocator);
-fn put(namespace: []const u8, name: []const u8, value: Schema) !void {
-    const key = try std.fmt.allocPrint(
-        SchemaMap.allocator,
-        "{s}.{s}",
-        .{ namespace, name },
-    );
-    try SchemaMap.put(key, value);
+pub var SchemaMap: std.StringHashMap(std.StringHashMap(Schema)) = .init(std.heap.page_allocator);
+pub var canPut: bool = true;
+fn put(spec_namespace: ?[]const u8, spec_name: []const u8, value: Schema) !void {
+    if (!canPut) @panic("stop it");
+    if (spec_name.len == 0) @panic("no name");
+    const ns = names.NS.resolve(spec_namespace, spec_name);
+    const gop = try SchemaMap.getOrPut(ns.namespace orelse "");
+    if (!gop.found_existing)
+        gop.value_ptr.* = .init(SchemaMap.allocator);
+    try gop.value_ptr.putNoClobber(ns.name, value);
 }
 
-pub fn get(namespace: []const u8, name: []const u8) !?Schema {
-    // Hack to account for names that contain namespace in the literal value
-    const key = if (std.mem.containsAtLeast(u8, name, 1, "."))
-        try std.fmt.allocPrint(SchemaMap.allocator, "{s}", .{name})
-    else
-        try std.fmt.allocPrint(SchemaMap.allocator, "{s}.{s}", .{ namespace, name });
-    return SchemaMap.get(key);
+pub fn get(spec_namespace: ?[]const u8, spec_name: []const u8) !?Schema {
+    const ns = names.NS.resolve(spec_namespace, spec_name);
+    if (SchemaMap.get(ns.namespace orelse "")) |ns_defs| return ns_defs.get(ns.name);
+    return null;
 }
 
 pub const parse_opts: json.ParseOptions = .{
@@ -108,36 +108,23 @@ pub const Schema = union(SchemaType) {
         return error.UnexpectedToken;
     }
 
-    pub fn decorate(self: *@This(), default_namespace: []const u8) !void {
+    pub fn decorate(self: *@This(), inherit_namespace: ?[]const u8) !void {
+        const ns = self.resolveNamespace(inherit_namespace);
         switch (self.*) {
             .record => |*r| {
-                if (r.namespace == null) r.namespace = default_namespace;
-                try put(r.namespace orelse return error.MissingDefaultNamespace, r.name, self.*);
-                for (r.fields) |*field| {
-                    if (field.namespace == null) field.namespace = r.namespace;
-                    try field.type.decorate(r.namespace orelse default_namespace);
-                }
+                try put(ns.namespace, ns.name, self.*);
+                for (r.fields) |*field|
+                    try field.type.decorate(ns.namespace);
             },
             .@"enum" => |*e| {
-                if (e.namespace == null) e.namespace = default_namespace;
-                try put(e.namespace orelse return error.MissingDefaultNamespace, e.name, self.*);
+                e.namespace = e.namespace orelse ns.namespace;
+                try put(e.namespace, e.name, self.*);
             },
-            .@"union" => |union_members| {
-                for (union_members) |*u| {
-                    try u.decorate(default_namespace);
-                }
-            },
-            .array => |*a| {
-                if (a.namespace == null) a.namespace = default_namespace;
-                try a.items.decorate(default_namespace);
-            },
-            .map => |*m| {
-                if (m.namespace == null) m.namespace = default_namespace;
-                try m.values.decorate(default_namespace);
-            },
-            .literal => |*l| {
-                if (l.namespace == null) l.namespace = default_namespace;
-            },
+            .@"union" => |union_members| for (union_members) |*u|
+                try u.decorate(ns.namespace),
+            .array => |*a| try a.items.decorate(ns.namespace),
+            .map => |*m| try m.values.decorate(ns.namespace),
+            .literal => |*l| l.namespace = l.namespace orelse ns.namespace,
             .fixed => {},
         }
     }
@@ -146,6 +133,7 @@ pub const Schema = union(SchemaType) {
         var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
         defer arena.deinit();
         const allocator = arena.allocator();
+        SchemaMap = .init(allocator);
 
         var w: Writer.Allocating = .init(allocator);
         defer w.deinit();
@@ -165,44 +153,45 @@ pub const Schema = union(SchemaType) {
         for (schema_files, default_ns, schemas) |file, ns, num| {
             var schema: Schema = try json.parseFromSliceLeaky(Schema, allocator, file, parse_opts);
             try schema.decorate(ns);
-            try std.testing.expectEqual(num, SchemaMap.count());
+            var count: usize = 0;
+            var ns_it = SchemaMap.valueIterator();
+            while (ns_it.next()) |c_ns|
+                count += c_ns.count();
+            try std.testing.expectEqual(num, count);
 
-            try expectNamespacing(&schema);
             SchemaMap.clearRetainingCapacity();
             try w.writer.flush();
             w.clearRetainingCapacity();
         }
     }
 
-    fn namespace(self: @This()) []const u8 {
+    fn resolveNamespace(self: @This(), inherit_namespace: ?[]const u8) names.NS {
         return switch (self) {
-            .record => |r| r.namespace,
-            .@"enum" => |e| e.namespace,
-            .array => |a| a.namespace,
-            .map => |m| m.namespace,
-            .literal => |l| l.namespace,
+            .record => |r| names.NS.resolve(r.namespace orelse inherit_namespace, r.name),
+            .@"enum" => |e| names.NS.resolve(e.namespace orelse inherit_namespace, e.name),
+            .array => |a| a.items.resolveNamespace(inherit_namespace),
+            .map => |m| m.values.resolveNamespace(inherit_namespace),
+            .literal => |l| names.NS.resolve(l.namespace orelse inherit_namespace, ""),
+            .@"union" => |_| names.NS.resolve(inherit_namespace, ""),
             else => @panic("Unimplemented namespace()"),
-        } orelse @panic("Missing namespace");
+        };
     }
 
     pub fn source(
         self: @This(),
         allocator: std.mem.Allocator,
         comptime top_level: bool,
+        comptime can_be_typeref: bool,
     ) anyerror![:0]const u8 {
         return try switch (self) {
-            .record => |r| r.source(allocator, top_level),
-            .@"enum" => |e| e.source(allocator),
+            .record => |r| if (can_be_typeref) r.typeRef(allocator, top_level) else r.source(allocator, top_level),
+            .@"enum" => |e| if (can_be_typeref) e.typeRef(allocator) else e.source(allocator),
             .array => |a| a.source(allocator, top_level),
             .map => |m| m.source(allocator),
             .literal => |l| {
-                const schema = try get(
-                    self.namespace(),
-                    l.value,
-                );
-
+                const schema = try get(l.namespace, l.value);
                 return try if (schema) |s|
-                    s.source(allocator, top_level)
+                    s.source(allocator, top_level, can_be_typeref)
                 else
                     l.source(allocator);
             },
@@ -213,16 +202,16 @@ pub const Schema = union(SchemaType) {
                         if (std.mem.eql(u8, first.literal.value, "null")) {
                             if (un[1] == .literal) {
                                 const schema = try get(
-                                    un[1].namespace(),
+                                    un[1].literal.namespace,
                                     un[1].literal.value,
                                 ) orelse un[1];
 
                                 return try std.fmt.allocPrintSentinel(allocator, "?{s}", .{
-                                    try schema.source(allocator, top_level),
+                                    try schema.source(allocator, top_level, true),
                                 }, 0);
                             }
                             return try std.fmt.allocPrintSentinel(allocator, "?{s}", .{
-                                try un[1].source(allocator, top_level),
+                                try un[1].source(allocator, top_level, true),
                             }, 0);
                         }
                     }
@@ -246,7 +235,7 @@ pub const Schema = union(SchemaType) {
                     const src = try std.fmt.allocPrintSentinel(
                         allocator,
                         "{s}",
-                        .{try u.source(allocator, top_level)},
+                        .{try u.source(allocator, top_level, true)},
                         0,
                     );
 
@@ -269,22 +258,53 @@ pub const Schema = union(SchemaType) {
         allocator: std.mem.Allocator,
         writer: *Writer,
     ) !void {
-        if (self.* != .record) return error.InvalidSchema;
+        // This generator is only for schemas with a top level record
+        if (self.* != .record) return error.UnsupportedSchema;
+        // Default namespace is not used inside the generated file
+        self.record.namespace = null;
 
         try writer.writeAll("//! This is a generated file - DO NOT EDIT!\n\n");
         try writer.print("const std = @import(\"std\");\n", .{});
         try writer.print("const avro = @import(\"zig-avro\");\n\n", .{});
 
-        try self.decorate(self.record.namespace orelse return error.MissingDefaultNamespace);
-        const src = try self.source(allocator, true);
+        try self.decorate(null);
+        canPut = false;
+
+        const src = try self.source(allocator, true, false);
         var a = try Ast.parse(allocator, src, .zig);
         try a.render(allocator, writer, .{});
+
+        var ns_it = SchemaMap.iterator();
+        while (ns_it.next()) |ns_entry| {
+            var ns_aw: Writer.Allocating = .init(allocator);
+            defer ns_aw.deinit();
+            var ns_writer = &ns_aw.writer;
+
+            const namespaced = ns_entry.key_ptr.len > 0;
+            if (namespaced) try ns_writer.print("const @\"{s}\" = struct {{\n", .{ns_entry.key_ptr.*});
+            var n_it = ns_entry.value_ptr.iterator();
+            while (n_it.next()) |n_entry| {
+                const tn = try names.typeName(allocator, n_entry.key_ptr.*);
+                try ns_writer.print("const {s} = ", .{tn});
+                const r_src = try n_entry.value_ptr.source(allocator, false, false);
+                try ns_writer.writeAll(r_src);
+                try ns_writer.print(";\n", .{});
+            }
+            if (namespaced) try ns_writer.print("}};\n\n", .{});
+
+            const ns_src = try ns_aw.toOwnedSliceSentinel(0);
+            defer allocator.free(ns_src);
+            var a2 = try Ast.parse(allocator, ns_src, .zig);
+            try a2.render(allocator, writer, .{});
+        }
+        try writer.flush();
     }
 
     test Schema {
         var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
         defer arena.deinit();
         const allocator = arena.allocator();
+        SchemaMap = .init(allocator);
 
         var w: Writer.Allocating = .init(allocator);
         defer w.deinit();
@@ -297,11 +317,7 @@ pub const Schema = union(SchemaType) {
             @embedFile("./test-files/EventLargeTest.zig"),
         };
 
-        const default_ns = comptime &[_][]const u8{
-            "no.tv2.sport.resultatservice.avro",
-        };
-
-        for (schema_files, result_files, default_ns) |file, expected, _| {
+        for (schema_files, result_files) |file, expected| {
             var schema = try json.parseFromSliceLeaky(Schema, allocator, file, parse_opts);
             try schema.render(allocator, &w.writer);
             try std.testing.expectEqualStrings(expected, w.written());
@@ -310,27 +326,6 @@ pub const Schema = union(SchemaType) {
         }
     }
 };
-
-pub fn expectNamespacing(schema: *Schema) !void {
-    return switch (schema.*) {
-        .record => |r| {
-            try std.testing.expect(r.namespace != null);
-            for (r.fields) |field| {
-                try expectNamespacing(field.type);
-            }
-        },
-        .@"enum" => |e| try std.testing.expect(e.namespace != null),
-        .array => |a| try expectNamespacing(a.items),
-        .map => |m| try expectNamespacing(m.values),
-        .literal => {},
-        .fixed => {},
-        .@"union" => |@"union"| {
-            for (@"union") |*u| {
-                try expectNamespacing(u);
-            }
-        },
-    };
-}
 
 test "parse schemas" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);

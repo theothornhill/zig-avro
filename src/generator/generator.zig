@@ -81,19 +81,20 @@ pub fn main() !void {
 
         try cwd.makePath(subpath);
 
-        const filename = try std.fmt.allocPrint(
-            allocator,
-            "{s}/{x}/{s}.{s}.zig",
-            .{
-                args.outputDir,
-                hashbuf[0..4],
-                p.value.record.namespace orelse return error.MissingDefaultNamespace,
-                p.value.record.name,
-            },
-        );
+        const filename = try if (p.value.record.namespace) |ns|
+            std.fmt.allocPrint(
+                allocator,
+                "{s}/{x}/{s}.{s}.zig",
+                .{ args.outputDir, hashbuf[0..4], ns, p.value.record.name },
+            )
+        else
+            std.fmt.allocPrint(
+                allocator,
+                "{s}/{x}/{s}.zig",
+                .{ args.outputDir, hashbuf[0..4], p.value.record.name },
+            );
 
         std.debug.print("Writing schema to: {s}\n", .{filename});
-
 
         var file = try cwd.createFile(filename, .{});
         defer file.close();

@@ -15,7 +15,7 @@ pub fn source(self: @This(), allocator: std.mem.Allocator) ![:0]const u8 {
     return try std.fmt.allocPrintSentinel(
         allocator,
         "avro.Map({s}){s}",
-        .{ try self.values.source(allocator, false), default },
+        .{ try self.values.source(allocator, false, true), default },
         0,
     );
 }
@@ -26,7 +26,7 @@ test "Map" {
     const allocator = arena.allocator();
 
     var schema: Schema = .{ .literal = .{ .value = "int", .namespace = "lol" } };
-    var arr: @This() = .{ .values = &schema, .default = .{ .val = .null} };
+    var arr: @This() = .{ .values = &schema, .default = .{ .val = .null } };
 
     var w: Writer.Allocating = .init(allocator);
     defer w.deinit();

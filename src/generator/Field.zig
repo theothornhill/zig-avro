@@ -16,7 +16,7 @@ namespace: ?[]const u8 = null,
 pub fn source(self: @This(), allocator: std.mem.Allocator) ![:0]const u8 {
     return try std.fmt.allocPrintSentinel(allocator, "{s}: {s}{s},", .{
         self.name,
-        try self.type.source(allocator, false),
+        try self.type.source(allocator, false, true),
         try self.default.source(self.type.*),
     }, 0);
 }
