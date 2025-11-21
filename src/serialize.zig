@@ -219,17 +219,13 @@ test "write array with known length" {
 }
 
 test "Map iteration" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    const allocator = arena.allocator();
-    defer arena.deinit();
-
     const Properties = std.StringHashMap([]const u8);
 
     const T = struct {
         properties: StringMap(Properties),
     };
 
-    var propsMap: Properties = .init(allocator);
+    var propsMap: Properties = .init(std.testing.allocator);
     defer propsMap.deinit();
     try propsMap.put("hello", "world");
     var t: T = .{ .properties = .from(&propsMap) };

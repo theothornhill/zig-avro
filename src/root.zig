@@ -2,11 +2,7 @@ const std = @import("std");
 
 pub const Deserialize = @import("deserialize.zig");
 pub const Serialize = @import("serialize.zig");
-
-pub const iter = @import("iterable.zig");
 pub const Generator = @import("generator/generator.zig");
-
-const Io = std.Io;
 
 test "array example from readme" {
     const FootballTeam = struct {
@@ -15,7 +11,7 @@ test "array example from readme" {
     };
 
     var buf: [50]u8 = undefined;
-    var writer: Io.Writer = .fixed(&buf);
+    var writer: std.Io.Writer = .fixed(&buf);
 
     var t = FootballTeam{
         .name = "Zig Avro Oldboys",
@@ -51,7 +47,7 @@ test "array example from readme" {
 //     try std.testing.expectEqualStrings("BC", i.key);
 // }
 
-pub fn encode(comptime T: type, self: *T, writer: *Io.Writer) !usize {
+pub fn encode(comptime T: type, self: *T, writer: *std.Io.Writer) !usize {
     return try Serialize.write(T, writer, self);
 }
 
