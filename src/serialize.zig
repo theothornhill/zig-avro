@@ -5,7 +5,6 @@ const boolean = @import("bool.zig");
 const deserialize = @import("deserialize.zig");
 const WriteError = @import("errors.zig").WriteError;
 const root = @import("root.zig");
-const iter = @import("iterable.zig");
 const Writer = std.Io.Writer;
 
 pub fn write(comptime T: type, writer: *Writer, v: *const T) !usize {

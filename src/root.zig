@@ -24,29 +24,6 @@ test "array example from readme" {
     try std.testing.expectEqual(34, written);
 }
 
-// test "map of 2" {
-//     var m: Map(i32) = undefined;
-//     const buf = &[_]u8{
-//         2 << 1, // array block length 2
-//         1 << 1, // string(len 1)
-//         'A',
-//         4 << 1, // number 4
-//         2 << 1, // string(len 2)
-//         'B',
-//         'C',
-//         5 << 1, // number 5
-//         0, // array end
-//     };
-//     _ = try Deserialize.read(Map(i32), &m, buf);
-//     var arri = m.array.iterable.iterator();
-//     var i = (try arri.next()).?;
-//     try std.testing.expectEqual(4, i.value);
-//     try std.testing.expectEqualStrings("A", i.key);
-//     i = (try arri.next()).?;
-//     try std.testing.expectEqual(5, i.value);
-//     try std.testing.expectEqualStrings("BC", i.key);
-// }
-
 pub fn encode(comptime T: type, self: *T, writer: *std.Io.Writer) !usize {
     return try Serialize.write(T, writer, self);
 }
