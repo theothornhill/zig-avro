@@ -2,12 +2,11 @@ const number = @import("number.zig");
 const std = @import("std");
 const string = @import("string.zig");
 const boolean = @import("bool.zig");
-const reader = @import("reader.zig");
+const deserialize = @import("deserialize.zig");
 const WriteError = @import("errors.zig").WriteError;
 const root = @import("root.zig");
 const iter = @import("iterable.zig");
 const Writer = std.Io.Writer;
-
 
 pub fn write(comptime T: type, writer: *Writer, v: *T) !usize {
     switch (T) {
@@ -183,9 +182,9 @@ test "write record with union" {
     };
     _ = try write(Record, &writer, &r2);
     var ro: Record = undefined;
-    const rem = try reader.read(Record, &ro, &writeBuffer);
+    const rem = try deserialize.read(Record, &ro, &writeBuffer);
     try std.testing.expectEqual(r1, ro);
-    _ = try reader.read(Record, &ro, writeBuffer[rem..]);
+    _ = try deserialize.read(Record, &ro, writeBuffer[rem..]);
     try std.testing.expectEqual(r2, ro);
 }
 
@@ -215,9 +214,9 @@ test "write record with enum" {
     };
     _ = try write(Record, &writer, &r2);
     var ro: Record = undefined;
-    const rem = try reader.read(Record, &ro, &writeBuffer);
+    const rem = try deserialize.read(Record, &ro, &writeBuffer);
     try std.testing.expectEqual(r1, ro);
-    _ = try reader.read(Record, &ro, writeBuffer[rem..]);
+    _ = try deserialize.read(Record, &ro, writeBuffer[rem..]);
     try std.testing.expectEqual(r2, ro);
 }
 
@@ -249,8 +248,8 @@ test "write record of primitives" {
     };
     _ = try write(Record, &writer, &r2);
     var ro: Record = undefined;
-    const rem = try reader.read(Record, &ro, &buf);
+    const rem = try deserialize.read(Record, &ro, &buf);
     try std.testing.expectEqual(r1, ro);
-    _ = try reader.read(Record, &ro, buf[rem..]);
+    _ = try deserialize.read(Record, &ro, buf[rem..]);
     try std.testing.expectEqual(r2, ro);
 }

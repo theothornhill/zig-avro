@@ -1,7 +1,7 @@
 const std = @import("std");
 
-pub const Reader = @import("reader.zig");
-pub const Writer = @import("writer.zig");
+pub const Deserialize = @import("deserialize.zig");
+pub const Serialize = @import("serialize.zig");
 
 pub const iter = @import("iterable.zig");
 pub const Generator = @import("generator/generator.zig");
@@ -17,8 +17,8 @@ pub fn Map(comptime T: type) type {
             value: T,
 
             pub fn deserialize(self: *@This(), buf: []const u8) !usize {
-                const n = try Reader.read([]const u8, &self.key, buf);
-                return n + try Reader.read(T, &self.value, buf[n..]);
+                const n = try Deserialize.read([]const u8, &self.key, buf);
+                return n + try Deserialize.read(T, &self.value, buf[n..]);
             }
         };
 
@@ -49,7 +49,7 @@ test "array example from readme" {
     var ictx = iter.SliceIterableContext(i32){};
     t.player_ids.iterable = ictx.iterable(&ids);
 
-    const written = try Writer.write(FootballTeam, &writer, &t);
+    const written = try Serialize.write(FootballTeam, &writer, &t);
 
     try std.testing.expectEqualStrings("Avro", buf[5..9]);
     try std.testing.expectEqual(44, written);
@@ -68,7 +68,7 @@ test "map of 2" {
         5 << 1, // number 5
         0, // array end
     };
-    _ = try Reader.read(Map(i32), &m, buf);
+    _ = try Deserialize.read(Map(i32), &m, buf);
     var arri = m.array.iterable.iterator();
     var i = (try arri.next()).?;
     try std.testing.expectEqual(4, i.value);
@@ -107,7 +107,7 @@ test "Map iteration" {
 
 pub fn Array(comptime T: type) type {
     return struct {
-        reader: Reader.Array(T) = .{},
+        reader: Deserialize.Array(T) = .{},
         iterable: iter.Iterable(T) = Noterator(T).iterable(),
         pub fn deserialize(self: *@This(), buf: []const u8) !usize {
             const n = try self.reader.deserialize(buf);
@@ -138,7 +138,7 @@ test "uninitialized iterators are bad" {
 }
 
 pub fn encode(comptime T: type, self: *T, writer: *Io.Writer) !usize {
-    return try Writer.write(T, writer, self);
+    return try Serialize.write(T, writer, self);
 }
 
 test {
