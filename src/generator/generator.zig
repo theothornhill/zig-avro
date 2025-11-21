@@ -7,7 +7,7 @@ const Ast = std.zig.Ast;
 const Field = @import("Field.zig");
 const Record = @import("Record.zig");
 const Default = @import("Default.zig").Default;
-const Schema = @import("Schema.zig").Schema;
+const s = @import("Schema.zig");
 
 const parse_opts: std.json.ParseOptions = .{
     .ignore_unknown_fields = true,
@@ -61,8 +61,8 @@ pub fn main() !void {
 
         var hashbuf: [std.crypto.hash.sha2.Sha256.digest_length]u8 = undefined;
         std.crypto.hash.sha2.Sha256.hash(input, &hashbuf, .{});
-        var p: json.Parsed(Schema) = try json.parseFromSlice(
-            Schema,
+        var p: json.Parsed(s.Schema) = try json.parseFromSlice(
+            s.Schema,
             allocator,
             input,
             parse_opts,
@@ -81,28 +81,32 @@ pub fn main() !void {
 
         try cwd.makePath(subpath);
 
-        const filename = try if (p.value.record.namespace) |ns|
-            std.fmt.allocPrint(
-                allocator,
-                "{s}/{x}/{s}.{s}.zig",
-                .{ args.outputDir, hashbuf[0..4], ns, p.value.record.name },
-            )
-        else
-            std.fmt.allocPrint(
-                allocator,
-                "{s}/{x}/{s}.zig",
-                .{ args.outputDir, hashbuf[0..4], p.value.record.name },
-            );
+        const serdeTypes: []const s.SerdeType = &.{ .serialize, .deserialize };
+        const defaultNs = p.value.record.namespace;
+        inline for (serdeTypes) |serdeType| {
+            const filename = try if (defaultNs) |ns|
+                std.fmt.allocPrint(
+                    allocator,
+                    "{s}/{x}/{s}.{s}_{s}.zig",
+                    .{ args.outputDir, hashbuf[0..4], ns, p.value.record.name, @tagName(serdeType) },
+                )
+            else
+                std.fmt.allocPrint(
+                    allocator,
+                    "{s}/{x}/{s}_{s}.zig",
+                    .{ args.outputDir, hashbuf[0..4], p.value.record.name, @tagName(serdeType) },
+                );
 
-        std.debug.print("Writing schema to: {s}\n", .{filename});
+            std.debug.print("Writing schema to: {s}\n", .{filename});
 
-        var file = try cwd.createFile(filename, .{});
-        defer file.close();
+            var file = try cwd.createFile(filename, .{});
+            defer file.close();
 
-        var file_buffer: [1024]u8 = undefined;
-        var w = file.writer(&file_buffer);
+            var file_buffer: [1024]u8 = undefined;
+            var w = file.writer(&file_buffer);
 
-        try p.value.render(allocator, &w.interface);
-        try w.interface.flush();
+            try p.value.render(allocator, &w.interface, serdeType);
+            try w.interface.flush();
+        }
     }
 }
