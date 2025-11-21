@@ -8,7 +8,7 @@ const root = @import("root.zig");
 const iter = @import("iterable.zig");
 const Writer = std.Io.Writer;
 
-pub fn write(comptime T: type, writer: *Writer, v: *T) !usize {
+pub fn write(comptime T: type, writer: *Writer, v: *const T) !usize {
     switch (T) {
         bool => return try boolean.write(writer, v.*),
         i32 => return try number.writeInt(writer, v.*),
@@ -19,10 +19,10 @@ pub fn write(comptime T: type, writer: *Writer, v: *T) !usize {
         else => {
             switch (@typeInfo(T)) {
                 .@"struct" => {
-                    if (@hasField(T, "array"))
-                        return try writeArray(@TypeOf(v.array), writer, &v.array);
-                    if (@hasField(T, "iterable"))
+                    if (@hasDecl(T, "array_iterator"))
                         return try writeArray(T, writer, v);
+                    if (@hasDecl(T, "map_iterator"))
+                        return try writeMap(T, writer, v);
                     return try writeRecord(T, writer, v);
                 },
                 .@"enum" => return try writeEnum(T, writer, v.*),
@@ -36,31 +36,102 @@ pub fn write(comptime T: type, writer: *Writer, v: *T) !usize {
     }
 }
 
-fn writeArray(comptime A: type, writer: *Writer, a: *A) !usize {
+pub fn SliceArray(T: type) type {
+    return struct {
+        const ThisSliceArray = @This();
+        src: []const T,
+        array_len: usize,
+        const Iterator = struct {
+            pos: usize,
+            src: []const T,
+            pub fn next(self: *@This()) !?T {
+                if (self.pos == self.src.len) return null;
+                defer self.pos += 1;
+                return self.src[self.pos];
+            }
+        };
+        pub fn array_iterator(self: ThisSliceArray) Iterator {
+            return .{ .src = self.src, .pos = 0 };
+        }
+        pub fn from(slice: []const T) ThisSliceArray {
+            return .{ .src = slice, .array_len = slice.len };
+        }
+    };
+}
+
+// Supports things that quack like std.StringHashMap
+pub fn StringMap(Map: type) type {
+    return struct {
+        const T = @FieldType(Map.KV, "value");
+        const ThisSHMM = @This();
+        src: *Map,
+        map_len: usize,
+        const Iterator = struct {
+            it: Map.Iterator,
+            pub fn next(self: *@This()) !?struct { []const u8, *const T } {
+                return if (self.it.next()) |kv| .{ kv.key_ptr.*, kv.value_ptr } else null;
+            }
+        };
+        pub fn map_iterator(self: ThisSHMM) Iterator {
+            return .{ .it = self.src.iterator() };
+        }
+        pub fn from(map: *Map) ThisSHMM {
+            return .{ .src = map, .map_len = map.count() };
+        }
+    };
+}
+
+fn writeArray(comptime A: type, writer: *Writer, a: *const A) !usize {
     var pos: usize = 0;
-    var it = a.iterable.iterator();
-    if (@hasField(A, "len")) {
-        pos += try number.writeLong(writer, @as(i64, @intCast(a.len)));
+    var it = a.array_iterator();
+    if (@hasField(A, "array_len")) {
+        pos += try number.writeLong(writer, @as(i64, @intCast(a.array_len)));
         var count: u64 = 0;
         while (try it.next()) |val| {
-            const V = @typeInfo(@TypeOf(val)).pointer.child;
+            const V = @TypeOf(val);
             count += 1;
-            if (count > a.len) return WriteError.ArrayTooLong;
-            pos += try write(V, writer, val);
+            if (count > a.array_len) return WriteError.ArrayTooLong;
+            pos += try write(V, writer, &val);
         }
-        if (count < a.len) return WriteError.ArrayTooShort;
+        if (count < a.array_len) return WriteError.ArrayTooShort;
     } else {
         while (try it.next()) |val| {
-            const V = @typeInfo(@TypeOf(val)).pointer.child;
+            const V = @TypeOf(val);
             pos += try number.writeInt(writer, 1);
-            pos += try write(V, writer, val);
+            pos += try write(V, writer, &val);
         }
     }
     try writer.writeByte(0);
     return pos + 1;
 }
 
-fn writeOptional(comptime O: type, writer: *Writer, o: *?O) !usize {
+fn writeMap(comptime M: type, writer: *Writer, m: *const M) !usize {
+    var pos: usize = 0;
+    var it = m.map_iterator();
+    if (@hasField(M, "map_len")) {
+        pos += try number.writeLong(writer, @as(i64, @intCast(m.map_len)));
+        var count: u64 = 0;
+        while (try it.next()) |val| {
+            const V = @typeInfo(@TypeOf(val[1])).pointer.child;
+            count += 1;
+            if (count > m.map_len) return WriteError.ArrayTooLong;
+            pos += try write([]const u8, writer, &val[0]);
+            pos += try write(V, writer, val[1]);
+        }
+        if (count < m.map_len) return WriteError.ArrayTooShort;
+    } else {
+        while (try it.next()) |val| {
+            const V = @typeInfo(@TypeOf(val[1])).pointer.child;
+            pos += try number.writeInt(writer, 1);
+            pos += try write([]const u8, writer, &val[0]);
+            pos += try write(V, writer, val[1]);
+        }
+    }
+    try writer.writeByte(0);
+    return pos + 1;
+}
+
+fn writeOptional(comptime O: type, writer: *Writer, o: *const ?O) !usize {
     if (o.*) |*v| {
         try writer.writeByte(2);
         return 1 + try write(O, writer, v);
@@ -73,7 +144,7 @@ fn writeFixed(len: comptime_int, writer: *Writer, v: *[len]u8) !usize {
     return try writer.write(v);
 }
 
-fn writeUnion(comptime U: type, writer: *Writer, u: *U) !usize {
+fn writeUnion(comptime U: type, writer: *Writer, u: *const U) !usize {
     const tagId: i32 = @intFromEnum(u.*);
     inline for (@typeInfo(U).@"union".fields, 0..) |tag, id| {
         if (tagId == id) {
@@ -91,7 +162,7 @@ fn writeEnum(comptime E: type, writer: *Writer, e: E) !usize {
     return try number.writeInt(writer, @as(i32, @intFromEnum(e)));
 }
 
-fn writeRecord(comptime R: type, writer: *Writer, r: *R) !usize {
+fn writeRecord(comptime R: type, writer: *Writer, r: *const R) !usize {
     var written: usize = 0;
     inline for (@typeInfo(R).@"struct".fields) |field|
         written += try write(field.type, writer, &@field(r, field.name));
@@ -102,31 +173,47 @@ test "write array with unknown length" {
     var writeBuffer: [100]u8 = undefined;
     var writer: Writer = .fixed(&writeBuffer);
 
-    const Record = struct {
-        list: struct {
-            iterable: iter.Iterable(i32),
-        },
+    const MyArray = struct {
+        const MyIterator = struct {
+            pos: usize = 0,
+            pub fn next(self: *MyIterator) !?i32 {
+                if (self.pos == 2) return null;
+                defer self.pos += 1;
+                return 1;
+            }
+        };
+        pub fn array_iterator(_: @This()) MyIterator {
+            return .{};
+        }
     };
-    var nums = [_]i32{ 1, 1 };
-    var numsItCtx = iter.SliceIterableContext(i32){};
-    var r = Record{ .list = .{ .iterable = numsItCtx.iterable(&nums) } };
+
+    const Record = struct { list: MyArray };
+    var r: Record = .{ .list = .{} };
     const out = try write(Record, &writer, &r);
     try std.testing.expectEqual(5, out);
 }
 
 test "write array with known length" {
-    var buf: [100]u8 = undefined;
-    var writer: Writer = .fixed(&buf);
+    var writeBuffer: [100]u8 = undefined;
+    var writer: Writer = .fixed(&writeBuffer);
 
-    const Record = struct {
-        list: struct {
-            len: usize = 2,
-            iterable: iter.Iterable(i32),
-        },
+    const MyArray = struct {
+        const MyIterator = struct {
+            pos: usize = 0,
+            pub fn next(self: *MyIterator) !?i32 {
+                if (self.pos == 2) return null;
+                defer self.pos += 1;
+                return 1;
+            }
+        };
+        array_len: usize = 2,
+        pub fn array_iterator(_: @This()) MyIterator {
+            return .{};
+        }
     };
-    var nums = [_]i32{ 1, 1 };
-    var numsItCtx = iter.SliceIterableContext(i32){};
-    var r = Record{ .list = .{ .iterable = numsItCtx.iterable(&nums) } };
+
+    const Record = struct { list: MyArray };
+    var r: Record = .{ .list = .{} };
     const out = try write(Record, &writer, &r);
     try std.testing.expectEqual(4, out);
 }
