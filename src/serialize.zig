@@ -218,6 +218,33 @@ test "write array with known length" {
     try std.testing.expectEqual(4, out);
 }
 
+test "Map iteration" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    const allocator = arena.allocator();
+    defer arena.deinit();
+
+    const Properties = std.StringHashMap([]const u8);
+
+    const T = struct {
+        properties: StringMap(Properties),
+    };
+
+    var propsMap: Properties = .init(allocator);
+    defer propsMap.deinit();
+    try propsMap.put("hello", "world");
+    var t: T = .{ .properties = .from(&propsMap) };
+
+    var buf: [100]u8 = undefined;
+    var writer: std.Io.Writer = .fixed(&buf);
+
+    const written = try write(T, &writer, &t);
+
+    try std.testing.expectEqual(14, written);
+
+    try std.testing.expectEqualStrings("hello", buf[2..7]);
+    try std.testing.expectEqualStrings("world", buf[8..13]);
+}
+
 test "write optional" {
     var writeBuffer: [100]u8 = undefined;
     var writer: Writer = .fixed(&writeBuffer);

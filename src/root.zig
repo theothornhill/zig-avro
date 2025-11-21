@@ -51,33 +51,6 @@ test "array example from readme" {
 //     try std.testing.expectEqualStrings("BC", i.key);
 // }
 
-test "Map iteration" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    const allocator = arena.allocator();
-    defer arena.deinit();
-
-    const Properties = std.StringHashMap([]const u8);
-
-    const T = struct {
-        properties: Serialize.StringMap(Properties),
-    };
-
-    var propsMap: Properties = .init(allocator);
-    defer propsMap.deinit();
-    try propsMap.put("hello", "world");
-    var t: T = .{ .properties = .from(&propsMap) };
-
-    var buf: [100]u8 = undefined;
-    var writer: Io.Writer = .fixed(&buf);
-
-    const written = try encode(T, &t, &writer);
-
-    try std.testing.expectEqual(14, written);
-
-    try std.testing.expectEqualStrings("hello", buf[2..7]);
-    try std.testing.expectEqualStrings("world", buf[8..13]);
-}
-
 pub fn encode(comptime T: type, self: *T, writer: *Io.Writer) !usize {
     return try Serialize.write(T, writer, self);
 }
