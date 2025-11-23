@@ -41,7 +41,7 @@ const written = try avro.encode(Record, &r, &writer);
 try std.testing.expectEqual(1, buf[0]);
 ```
 
-For Arrays, you need to provide a type that defines `array_iterator()`.
+For Arrays or Maps, you need to provide a type that defines `⚙️iterator()`.
 If your source data is available as a slice `[]const T`, you can use the
 provided `SliceArray`:
 ```zig
@@ -67,7 +67,6 @@ try std.testing.expectEqualStrings("Avro", buf[5..9]);
 try std.testing.expectEqual(34, written);
 ```
 
-For Maps, you need to provide a type that defines `map_iterator()`.
 If your source data is available in a `std.StringHashMap(T)` (or something
 that quacks the same, like `std.StringArrayHashMap(T)`), you can use the
 provided `StringMap`:

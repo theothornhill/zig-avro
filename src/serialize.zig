@@ -18,10 +18,8 @@ pub fn write(comptime T: type, writer: *Writer, v: *const T) !usize {
         else => {
             switch (@typeInfo(T)) {
                 .@"struct" => {
-                    if (@hasDecl(T, "array_iterator"))
+                    if (@hasDecl(T, "⚙️iterator"))
                         return try writeArray(T, writer, v);
-                    if (@hasDecl(T, "map_iterator"))
-                        return try writeMap(T, writer, v);
                     return try writeRecord(T, writer, v);
                 },
                 .@"enum" => return try writeEnum(T, writer, v.*),
@@ -39,7 +37,7 @@ pub fn SliceArray(T: type) type {
     return struct {
         const ThisSliceArray = @This();
         src: []const T,
-        array_len: usize,
+        @"⚙️len": usize,
         const Iterator = struct {
             pos: usize,
             src: []const T,
@@ -49,11 +47,11 @@ pub fn SliceArray(T: type) type {
                 return self.src[self.pos];
             }
         };
-        pub fn array_iterator(self: ThisSliceArray) Iterator {
+        pub fn @"⚙️iterator"(self: ThisSliceArray) Iterator {
             return .{ .src = self.src, .pos = 0 };
         }
         pub fn from(slice: []const T) ThisSliceArray {
-            return .{ .src = slice, .array_len = slice.len };
+            return .{ .src = slice, .@"⚙️len" = slice.len };
         }
     };
 }
@@ -61,69 +59,49 @@ pub fn SliceArray(T: type) type {
 // Supports things that quack like std.StringHashMap
 pub fn StringMap(Map: type) type {
     return struct {
-        const T = @FieldType(Map.KV, "value");
-        const ThisSHMM = @This();
+        const Entry = struct { key: []const u8, value: @FieldType(Map.KV, "value") };
+        const ThisStringMap = @This();
         src: *Map,
-        map_len: usize,
+        @"⚙️len": usize,
         const Iterator = struct {
             it: Map.Iterator,
-            pub fn next(self: *@This()) !?struct { []const u8, *const T } {
-                return if (self.it.next()) |kv| .{ kv.key_ptr.*, kv.value_ptr } else null;
+            entry: Entry = undefined,
+            pub fn next(self: *Iterator) !?Entry {
+                return if (self.it.next()) |kv|
+                    .{ .key = kv.key_ptr.*, .value = kv.value_ptr.* }
+                else
+                    null;
             }
         };
-        pub fn map_iterator(self: ThisSHMM) Iterator {
+        pub fn @"⚙️iterator"(self: ThisStringMap) Iterator {
             return .{ .it = self.src.iterator() };
         }
-        pub fn from(map: *Map) ThisSHMM {
-            return .{ .src = map, .map_len = map.count() };
+        pub fn from(map: *Map) ThisStringMap {
+            return .{ .src = map, .@"⚙️len" = map.count() };
         }
     };
 }
 
+/// We use the ⚙️ symbol in identifiers to differentiate our own
+/// parser logic from Avro fields, as they are not valid in Avro field names.
 fn writeArray(comptime A: type, writer: *Writer, a: *const A) !usize {
     var pos: usize = 0;
-    var it = a.array_iterator();
-    if (@hasField(A, "array_len")) {
-        pos += try number.writeLong(writer, @as(i64, @intCast(a.array_len)));
+    var it = a.@"⚙️iterator"();
+    if (@hasField(A, "⚙️len")) {
+        pos += try number.writeLong(writer, @as(i64, @intCast(a.@"⚙️len")));
         var count: u64 = 0;
         while (try it.next()) |val| {
             const V = @TypeOf(val);
             count += 1;
-            if (count > a.array_len) return WriteError.ArrayTooLong;
+            if (count > a.@"⚙️len") return WriteError.ArrayTooLong;
             pos += try write(V, writer, &val);
         }
-        if (count < a.array_len) return WriteError.ArrayTooShort;
+        if (count < a.@"⚙️len") return WriteError.ArrayTooShort;
     } else {
         while (try it.next()) |val| {
             const V = @TypeOf(val);
             pos += try number.writeInt(writer, 1);
             pos += try write(V, writer, &val);
-        }
-    }
-    try writer.writeByte(0);
-    return pos + 1;
-}
-
-fn writeMap(comptime M: type, writer: *Writer, m: *const M) !usize {
-    var pos: usize = 0;
-    var it = m.map_iterator();
-    if (@hasField(M, "map_len")) {
-        pos += try number.writeLong(writer, @as(i64, @intCast(m.map_len)));
-        var count: u64 = 0;
-        while (try it.next()) |val| {
-            const V = @typeInfo(@TypeOf(val[1])).pointer.child;
-            count += 1;
-            if (count > m.map_len) return WriteError.ArrayTooLong;
-            pos += try write([]const u8, writer, &val[0]);
-            pos += try write(V, writer, val[1]);
-        }
-        if (count < m.map_len) return WriteError.ArrayTooShort;
-    } else {
-        while (try it.next()) |val| {
-            const V = @typeInfo(@TypeOf(val[1])).pointer.child;
-            pos += try number.writeInt(writer, 1);
-            pos += try write([]const u8, writer, &val[0]);
-            pos += try write(V, writer, val[1]);
         }
     }
     try writer.writeByte(0);
@@ -181,7 +159,7 @@ test "write array with unknown length" {
                 return 1;
             }
         };
-        pub fn array_iterator(_: @This()) MyIterator {
+        pub fn @"⚙️iterator"(_: @This()) MyIterator {
             return .{};
         }
     };
@@ -205,8 +183,8 @@ test "write array with known length" {
                 return 1;
             }
         };
-        array_len: usize = 2,
-        pub fn array_iterator(_: @This()) MyIterator {
+        @"⚙️len": usize = 2,
+        pub fn @"⚙️iterator"(_: @This()) MyIterator {
             return .{};
         }
     };

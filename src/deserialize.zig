@@ -83,7 +83,7 @@ fn readUnion(comptime U: type, u: *U, buf: []const u8) !usize {
 
 pub fn Array(comptime T: type) type {
     return struct {
-        array_len: usize = 0,
+        @"⚙️len": usize = 0,
         buf: []const u8 = &.{},
 
         const Iterator = struct {
@@ -112,7 +112,7 @@ pub fn Array(comptime T: type) type {
             }
         };
 
-        pub fn array_iterator(self: @This()) Iterator {
+        pub fn @"⚙️iterator"(self: @This()) Iterator {
             return .{ .buf = self.buf };
         }
 
@@ -127,7 +127,7 @@ pub fn Array(comptime T: type) type {
         /// `blockItems`, in which we should flip it to positive and read another varint
         /// describing the `blockBytesLength`.
         pub fn deserialize(self: *Array(T), buf: []const u8) !usize {
-            self.array_len = 0;
+            self.@"⚙️len" = 0;
             self.buf = buf;
             var blockItems: i64 = 0;
             var blockBytesLength: i64 = 0;
@@ -145,7 +145,7 @@ pub fn Array(comptime T: type) type {
                     for (0..@intCast(blockItems)) |_|
                         n += try read(T, &i, buf[n..]);
                 }
-                self.array_len += @intCast(blockItems);
+                self.@"⚙️len" += @intCast(blockItems);
             }
         }
     };
@@ -169,7 +169,7 @@ test "map of 2" {
         0, // array end
     };
     _ = try read(Map(i32), &m, buf);
-    var arri = m.array_iterator();
+    var arri = m.@"⚙️iterator"();
     var i = (try arri.next()).?;
     try std.testing.expectEqual(4, i.value);
     try std.testing.expectEqualStrings("A", i.key);
@@ -210,19 +210,19 @@ test "2d array" {
     };
     const rem = try read(Array(Array(i32)), &a, buf);
     try std.testing.expectEqual(10, rem);
-    try std.testing.expectEqual(2, a.array_len);
-    var rowIt = a.array_iterator();
+    try std.testing.expectEqual(2, a.@"⚙️len");
+    var rowIt = a.@"⚙️iterator"();
     var row1 = (try rowIt.next()).?;
-    try std.testing.expectEqual(2, row1.array_len);
-    var colIt = row1.array_iterator();
+    try std.testing.expectEqual(2, row1.@"⚙️len");
+    var colIt = row1.@"⚙️iterator"();
     var cell = (try colIt.next()).?;
     try std.testing.expectEqual(1, cell.*);
     cell = (try colIt.next()).?;
     try std.testing.expectEqual(2, cell.*);
     try std.testing.expectEqual(null, colIt.next());
     var row2 = (try rowIt.next()).?;
-    try std.testing.expectEqual(2, row2.array_len);
-    colIt = row2.array_iterator();
+    try std.testing.expectEqual(2, row2.@"⚙️len");
+    colIt = row2.@"⚙️iterator"();
     cell = (try colIt.next()).?;
     try std.testing.expectEqual(3, cell.*);
     cell = (try colIt.next()).?;
@@ -282,7 +282,7 @@ test "read record" {
 
     try std.testing.expectEqualStrings("HI", r.message.?);
     try std.testing.expectEqual(null, r.flags);
-    var itit = r.items.array_iterator();
+    var itit = r.items.@"⚙️iterator"();
     try std.testing.expectEqual(5, (try itit.next()).?.*);
     try std.testing.expectEqual(2, r.onion.number);
     try std.testing.expectEqual(22, num_read1 + num_read2);
