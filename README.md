@@ -36,7 +36,7 @@ var writer: Serializer = .fixed(&buf);
 
 var r = Record{ .b = true };
 
-const written = try avro.encode(Record, &r, &writer);
+const written = try avro.Serialize.write(Record, &writer, &r);
 
 try std.testing.expectEqual(1, buf[0]);
 ```

@@ -13,7 +13,26 @@ const Fixed = @import("Fixed.zig");
 const Literal = @import("Literal.zig");
 const names = @import("names.zig");
 
-pub const SerdeType = enum { serialize, deserialize };
+pub const SerdeType = enum {
+    serialize,
+    deserialize,
+    pub fn invocation(self: SerdeType) [:0]const u8 {
+        return switch (self) {
+            .serialize =>
+            \\pub fn @"⚙️serialize"(self: *const @This(), writer: *std.Io.Writer) !void {
+            \\  _ = try avro.Serialize.write(@This(), writer, self);
+            \\}
+            \\
+            ,
+            .deserialize =>
+            \\pub fn @"⚙️deserialize"(self: *@This(), data: []const u8) !void {
+            \\  _ = try avro.Deserialize.read(@This(), self, data);
+            \\}
+            \\
+            ,
+        };
+    }
+};
 pub const SourceOptions = struct {
     top_level: bool,
     can_be_typeref: bool,
@@ -282,6 +301,10 @@ pub const Schema = union(SchemaType) {
         try writer.print("const std = @import(\"std\");\n", .{});
         try writer.print("const avro = @import(\"zig-avro\");\n\n", .{});
 
+        var a = try Ast.parse(allocator, serdeType.invocation(), .zig);
+        try a.render(allocator, writer, .{});
+        try writer.print("\n", .{});
+
         SchemaMap.clearRetainingCapacity();
         try self.decorate(null);
 
@@ -291,7 +314,7 @@ pub const Schema = union(SchemaType) {
             .serde_type = serdeType,
         };
         const src = try self.source(allocator, baseOpts);
-        var a = try Ast.parse(allocator, src, .zig);
+        a = try Ast.parse(allocator, src, .zig);
         try a.render(allocator, writer, .{});
 
         var ns_it = SchemaMap.iterator();
@@ -313,8 +336,8 @@ pub const Schema = union(SchemaType) {
 
             const ns_src = try ns_aw.toOwnedSliceSentinel(0);
             defer allocator.free(ns_src);
-            var a2 = try Ast.parse(allocator, ns_src, .zig);
-            try a2.render(allocator, writer, .{});
+            a = try Ast.parse(allocator, ns_src, .zig);
+            try a.render(allocator, writer, .{});
         }
         try writer.flush();
     }

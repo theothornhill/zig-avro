@@ -24,10 +24,6 @@ test "array example from readme" {
     try std.testing.expectEqual(34, written);
 }
 
-pub fn encode(comptime T: type, self: *T, writer: *std.Io.Writer) !usize {
-    return try Serialize.write(T, writer, self);
-}
-
 test {
     @import("std").testing.refAllDeclsRecursive(@This());
 }
