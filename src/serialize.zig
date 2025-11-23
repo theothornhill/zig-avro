@@ -87,7 +87,7 @@ pub fn StringMap(Map: type) type {
 fn writeArray(comptime A: type, writer: *Writer, a: *const A) !usize {
     var pos: usize = 0;
     var it = a.@"⚙️iterator"();
-    if (@hasField(A, "⚙️len")) {
+    if (@hasField(A, "⚙️len") and a.@"⚙️len" > 0) {
         pos += try number.writeLong(writer, @as(i64, @intCast(a.@"⚙️len")));
         var count: u64 = 0;
         while (try it.next()) |val| {
@@ -144,6 +144,55 @@ fn writeRecord(comptime R: type, writer: *Writer, r: *const R) !usize {
     inline for (@typeInfo(R).@"struct".fields) |field|
         written += try write(field.type, writer, &@field(r, field.name));
     return written;
+}
+
+test SliceArray {
+    var empty: SliceArray(i32) = .from(&.{});
+    try std.testing.expectEqual(empty.@"⚙️len", 0);
+    var empty_it = empty.@"⚙️iterator"();
+    try std.testing.expectEqual(try empty_it.next(), null);
+    var fibbles: SliceArray(i32) = .from(&.{ 0, 1, 1, 3, 5 });
+    try std.testing.expectEqual(fibbles.@"⚙️len", 5);
+    var fibbles_it = fibbles.@"⚙️iterator"();
+    try std.testing.expectEqual((try fibbles_it.next()).?, 0);
+    try std.testing.expectEqual((try fibbles_it.next()).?, 1);
+    try std.testing.expectEqual((try fibbles_it.next()).?, 1);
+    try std.testing.expectEqual((try fibbles_it.next()).?, 3);
+    try std.testing.expectEqual((try fibbles_it.next()).?, 5);
+    try std.testing.expectEqual(fibbles_it.next(), null);
+}
+
+test "write empty arrays" {
+    var writeBuffer: [2]u8 = undefined;
+    var writer: Writer = .fixed(&writeBuffer);
+
+    const EmptyArray = struct {
+        const EmptyIterator = struct {
+            pub fn next(_: *EmptyIterator) !?i32 {
+                return null;
+            }
+        };
+        pub fn @"⚙️iterator"(_: @This()) EmptyIterator {
+            return .{};
+        }
+    };
+
+    const Record = struct { list: EmptyArray, list2: EmptyArray };
+    var r: Record = .{ .list = .{}, .list2 = .{} };
+    const out = try write(Record, &writer, &r);
+    try std.testing.expectEqual(2, out);
+    try std.testing.expectEqual(.{ 0, 0 }, writeBuffer);
+}
+
+test "write empty array from helper" {
+    var writeBuffer: [2]u8 = .{ 111, 111 };
+    var writer: Writer = .fixed(&writeBuffer);
+
+    const Record = struct { list: SliceArray(i32) };
+    var r: Record = .{ .list = .from(&.{}) };
+    const out = try write(Record, &writer, &r);
+    try std.testing.expectEqual(1, out);
+    try std.testing.expectEqual(.{ 0, 111 }, writeBuffer);
 }
 
 test "write array with unknown length" {

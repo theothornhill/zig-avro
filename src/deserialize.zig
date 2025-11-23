@@ -189,6 +189,15 @@ test "read array" {
     try std.testing.expectEqual(3, n);
 }
 
+test "read empty array" {
+    const buf = &[_]u8{
+        0,
+    };
+    var a: Array(i32) = undefined;
+    const n = try a.deserialize(buf);
+    try std.testing.expectEqual(1, n);
+}
+
 // +-+-+
 // |1|2|
 // +-+-+
