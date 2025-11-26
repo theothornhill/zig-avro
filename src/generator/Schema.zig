@@ -324,10 +324,10 @@ pub const Schema = union(SchemaType) {
             var ns_writer = &ns_aw.writer;
 
             const namespaced = ns_entry.key_ptr.len > 0;
-            if (namespaced) try ns_writer.print("const @\"{s}\" = struct {{\n", .{ns_entry.key_ptr.*});
+            if (namespaced) try ns_writer.print("pub const @\"{s}\" = struct {{\n", .{ns_entry.key_ptr.*});
             var n_it = ns_entry.value_ptr.iterator();
             while (n_it.next()) |n_entry| {
-                try ns_writer.print("const {f} = ", .{std.zig.fmtId(n_entry.key_ptr.*)});
+                try ns_writer.print("pub const {f} = ", .{std.zig.fmtId(n_entry.key_ptr.*)});
                 const r_src = try n_entry.value_ptr.source(allocator, baseOpts.clearTopLevel());
                 try ns_writer.writeAll(r_src);
                 try ns_writer.print(";\n", .{});

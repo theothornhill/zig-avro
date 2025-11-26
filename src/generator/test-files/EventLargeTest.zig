@@ -30,7 +30,7 @@ programs: avro.Deserialize.Array(ProgramInfo) = .{},
 participants: avro.Deserialize.Array(EventParticipantsParticipant) = .{},
 deleted: bool,
 properties: avro.Deserialize.Map([]const u8) = .{},
-const ProgramInfo = struct {
+pub const ProgramInfo = struct {
     assetId: ?[]const u8 = null,
     assetDuration: ?[]const u8 = null,
     channelName: ?[]const u8 = null,
@@ -40,7 +40,7 @@ const ProgramInfo = struct {
     channel: Channel = .UNKNOWN,
     channels: avro.Deserialize.Array(Channel) = .{},
 };
-const EventLargeProjection = struct {
+pub const EventLargeProjection = struct {
     id: []const u8,
     masterId: ?[]const u8 = null,
     name: []const u8,
@@ -65,7 +65,7 @@ const EventLargeProjection = struct {
     deleted: bool,
     properties: avro.Deserialize.Map([]const u8) = .{},
 };
-const ImageType = enum {
+pub const ImageType = enum {
     ICON,
     ICON_WITH_TEXT,
     ICON_WITH_SHORT_TEXT,
@@ -74,13 +74,13 @@ const ImageType = enum {
     MAP,
     UNKNOWN,
 };
-const Gender = enum {
+pub const Gender = enum {
     MALE,
     FEMALE,
     UNDEFINED,
     MIXED,
 };
-const Venue = struct {
+pub const Venue = struct {
     id: []const u8,
     masterId: ?[]const u8 = null,
     name: []const u8,
@@ -89,13 +89,13 @@ const Venue = struct {
     deleted: bool,
     properties: avro.Deserialize.Map([]const u8) = .{},
 };
-const PlatformType = enum {
+pub const PlatformType = enum {
     WEB,
     APP,
     TV,
     UNKNOWN,
 };
-const EventParticipantsParticipant = struct {
+pub const EventParticipantsParticipant = struct {
     id: []const u8,
     number: i32,
     participant: ParticipantProjection,
@@ -103,7 +103,7 @@ const EventParticipantsParticipant = struct {
     results: avro.Deserialize.Array(Result) = .{},
     properties: avro.Deserialize.Map([]const u8) = .{},
 };
-const ParticipantProjection = struct {
+pub const ParticipantProjection = struct {
     id: []const u8,
     masterId: ?[]const u8 = null,
     name: []const u8,
@@ -115,7 +115,7 @@ const ParticipantProjection = struct {
     deleted: bool,
     properties: avro.Deserialize.Map([]const u8) = .{},
 };
-const ResultType = enum {
+pub const ResultType = enum {
     ORDINARY_TIME,
     EXTRA_TIME,
     PENALTY_SHOOTOUT,
@@ -212,7 +212,7 @@ const ResultType = enum {
     BEST_TIME,
     UNKNOWN,
 };
-const TournamentProjection = struct {
+pub const TournamentProjection = struct {
     id: []const u8,
     masterId: ?[]const u8 = null,
     name: []const u8,
@@ -228,7 +228,7 @@ const TournamentProjection = struct {
     deleted: bool,
     properties: avro.Deserialize.Map([]const u8) = .{},
 };
-const EventStatusDescription = enum {
+pub const EventStatusDescription = enum {
     PLAYOFF_INTERRUPTED,
     ONE_OF_SIXTEENTH_ROUND_STARTED,
     ONE_OF_THIRTY_SECOND_ROUND_STARTED,
@@ -403,7 +403,7 @@ const EventStatusDescription = enum {
     WITHDRAWN,
     UNKNOWN,
 };
-const TournamentTemplateProjection = struct {
+pub const TournamentTemplateProjection = struct {
     id: []const u8,
     masterId: ?[]const u8 = null,
     sportType: SportType = "UNKNOWN",
@@ -416,7 +416,7 @@ const TournamentTemplateProjection = struct {
     deleted: bool,
     properties: avro.Deserialize.Map([]const u8) = .{},
 };
-const EventStatus = enum {
+pub const EventStatus = enum {
     INTERRUPTED,
     NOT_STARTED,
     CANCELLED,
@@ -425,7 +425,7 @@ const EventStatus = enum {
     UNKNOWN,
     IN_PROGRESS,
 };
-const Channel = enum {
+pub const Channel = enum {
     TV2,
     TV2_SPORT_PREMIUM,
     TV2_SPORT_PREMIUM_2,
@@ -437,16 +437,16 @@ const Channel = enum {
     TV2_LIVE,
     UNKNOWN,
 };
-const ParticipantCountry = struct {
+pub const ParticipantCountry = struct {
     id: []const u8,
     name: []const u8,
     images: avro.Deserialize.Array(Image),
 };
-const Result = struct {
+pub const Result = struct {
     value: ?[]const u8,
     resultType: ResultType = .UNKNOWN,
 };
-const SportType = enum {
+pub const SportType = enum {
     FOOTBALL,
     HANDBALL,
     ICE_HOCKEY,
@@ -494,7 +494,7 @@ const SportType = enum {
     OTHER,
     UNKNOWN,
 };
-const TournamentStageProjection = struct {
+pub const TournamentStageProjection = struct {
     id: []const u8,
     masterId: ?[]const u8 = null,
     name: []const u8,
@@ -513,7 +513,7 @@ const TournamentStageProjection = struct {
     deleted: bool,
     properties: avro.Deserialize.Map([]const u8) = .{},
 };
-const Image = struct {
+pub const Image = struct {
     type: ImageType = .UNKNOWN,
     url: []const u8,
     inverted: bool,
@@ -522,7 +522,7 @@ const Image = struct {
     platform: PlatformType = .UNKNOWN,
     properties: avro.Deserialize.Map([]const u8) = .{},
 };
-const ParticipantType = enum {
+pub const ParticipantType = enum {
     ATHLETE,
     TEAM,
     ORGANIZATION,
@@ -534,7 +534,7 @@ const ParticipantType = enum {
     HORSE,
     UNDEFINED,
 };
-const Round = struct {
+pub const Round = struct {
     number: ?i32 = null,
     name: []const u8,
 };
