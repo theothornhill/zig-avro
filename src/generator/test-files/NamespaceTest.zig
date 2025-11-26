@@ -8,11 +8,8 @@ pub fn @"⚙️deserialize"(self: *@This(), data: []const u8) !void {
 }
 
 toe: @"name.spaced".Toe,
-const Bone = struct {
-    toe: @"namespaced.Toe",
-};
-const @"name.spaced" = struct {
-    const Toe = struct {
+pub const @"name.spaced" = struct {
+    pub const Toe = struct {
         size: i64,
     };
 };

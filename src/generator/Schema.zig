@@ -49,8 +49,8 @@ pub const SourceOptions = struct {
         return new;
     }
 };
-pub var SchemaMap: std.StringHashMap(std.StringHashMap(Schema)) = .init(std.heap.page_allocator);
-fn put(spec_namespace: ?[]const u8, spec_name: []const u8, value: Schema) !void {
+pub var SchemaMap: std.StringHashMap(std.StringHashMap(*Schema)) = .init(std.heap.page_allocator);
+fn put(spec_namespace: ?[]const u8, spec_name: []const u8, value: *Schema) !void {
     if (spec_name.len == 0) @panic("no name");
     const ns = names.NS.resolve(spec_namespace, spec_name);
     const gop = try SchemaMap.getOrPut(ns.namespace orelse "");
@@ -59,7 +59,7 @@ fn put(spec_namespace: ?[]const u8, spec_name: []const u8, value: Schema) !void 
     try gop.value_ptr.putNoClobber(ns.name, value);
 }
 
-pub fn get(spec_namespace: ?[]const u8, spec_name: []const u8) !?Schema {
+pub fn get(spec_namespace: ?[]const u8, spec_name: []const u8) !?*Schema {
     const ns = names.NS.resolve(spec_namespace, spec_name);
     if (SchemaMap.get(ns.namespace orelse "")) |ns_defs| return ns_defs.get(ns.name);
     return null;
@@ -146,13 +146,16 @@ pub const Schema = union(SchemaType) {
         const ns = self.resolveNamespace(inherit_namespace);
         switch (self.*) {
             .record => |*r| {
-                try put(ns.namespace, ns.name, self.*);
+                r.namespace = ns.namespace;
+                r.name = ns.name;
+                try put(r.namespace, r.name, self);
                 for (r.fields) |*field|
                     try field.type.decorate(ns.namespace);
             },
             .@"enum" => |*e| {
                 e.namespace = e.namespace orelse ns.namespace;
-                try put(e.namespace, e.name, self.*);
+                e.name = ns.name;
+                try put(e.namespace, e.name, self);
             },
             .@"union" => |union_members| for (union_members) |*u|
                 try u.decorate(ns.namespace),
@@ -237,7 +240,7 @@ pub const Schema = union(SchemaType) {
                                 const schema = try get(
                                     un[1].literal.namespace,
                                     un[1].literal.value,
-                                ) orelse un[1];
+                                ) orelse &un[1];
 
                                 return try std.fmt.allocPrintSentinel(allocator, "?{s}", .{
                                     try schema.source(allocator, opts.allowTypeRef()),
@@ -327,8 +330,10 @@ pub const Schema = union(SchemaType) {
             if (namespaced) try ns_writer.print("pub const @\"{s}\" = struct {{\n", .{ns_entry.key_ptr.*});
             var n_it = ns_entry.value_ptr.iterator();
             while (n_it.next()) |n_entry| {
+                if (n_entry.value_ptr.* == self)
+                    continue;
                 try ns_writer.print("pub const {f} = ", .{std.zig.fmtId(n_entry.key_ptr.*)});
-                const r_src = try n_entry.value_ptr.source(allocator, baseOpts.clearTopLevel());
+                const r_src = try n_entry.value_ptr.*.source(allocator, baseOpts.clearTopLevel());
                 try ns_writer.writeAll(r_src);
                 try ns_writer.print(";\n", .{});
             }
