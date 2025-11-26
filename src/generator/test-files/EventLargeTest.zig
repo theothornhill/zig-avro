@@ -3,6 +3,10 @@
 const std = @import("std");
 const avro = @import("zig-avro");
 
+pub fn @"⚙️deserialize"(self: *@This(), data: []const u8) !void {
+    _ = try avro.Deserialize.read(@This(), self, data);
+}
+
 id: []const u8,
 masterId: ?[]const u8 = null,
 name: []const u8,
