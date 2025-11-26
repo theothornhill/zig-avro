@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "name": "Bone",
+  "fields": [
+    {
+      "name": "toe",
+      "type": {
+        "type": "record",
+        "name": "name.spaced.Toe",
+        "fields": [
+          {
+            "name": "size",
+            "type": "long"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -353,10 +353,12 @@ pub const Schema = union(SchemaType) {
 
         const schema_files = comptime &[_][]const u8{
             @embedFile("./test-files/EventLarge.avsc"),
+            @embedFile("./test-files/Namespace.avsc"),
         };
 
         const result_files = comptime &[_][]const u8{
             @embedFile("./test-files/EventLargeTest.zig"),
+            @embedFile("./test-files/NamespaceTest.zig"),
         };
 
         for (schema_files, result_files) |file, expected| {
