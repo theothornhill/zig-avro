@@ -18,10 +18,14 @@ default: Default = .none,
 const FmtFields = struct {
     fields: []Field,
 
-    pub fn format(self: @This(), allocator: std.mem.Allocator) ![]const u8 {
+    pub fn format(
+        self: @This(),
+        allocator: std.mem.Allocator,
+        comptime opts: s.SourceOptions,
+    ) ![]const u8 {
         var w: Writer.Allocating = .init(allocator);
         for (self.fields) |f|
-            try w.writer.print("{s}\n", .{try f.source(allocator)});
+            try w.writer.print("{s}\n", .{try f.source(allocator, opts)});
         return w.written();
     }
 };
@@ -29,10 +33,10 @@ const FmtFields = struct {
 pub fn source(
     self: @This(),
     allocator: std.mem.Allocator,
-    comptime top_level: bool,
+    comptime opts: s.SourceOptions,
 ) ![:0]const u8 {
-    const fields = try (FmtFields{ .fields = self.fields }).format(allocator);
-    const fmt = if (top_level)
+    const fields = try (FmtFields{ .fields = self.fields }).format(allocator, opts);
+    const fmt = if (opts.top_level)
         "{s}"
     else
         "struct {{ {s} }}";
@@ -43,9 +47,9 @@ pub fn source(
 pub fn typeRef(
     self: @This(),
     allocator: std.mem.Allocator,
-    comptime top_level: bool,
+    comptime opts: s.SourceOptions,
 ) ![:0]const u8 {
-    if (self.name.len > 0 and !top_level) {
+    if (opts.can_be_typeref and self.name.len > 0 and !opts.top_level) {
         return if (self.namespace) |ns|
             try std.fmt.allocPrintSentinel(
                 allocator,
@@ -62,7 +66,7 @@ pub fn typeRef(
             );
     }
 
-    return self.source(allocator, top_level);
+    return self.source(allocator, opts);
 }
 
 test "Record" {
@@ -101,7 +105,12 @@ test "Record" {
     var w: Writer.Allocating = .init(allocator);
     defer w.deinit();
 
-    const a = try Ast.parse(allocator, try r.source(allocator, false), .zig);
+    const opts: s.SourceOptions = .{
+        .can_be_typeref = false,
+        .serde_type = .deserialize,
+        .top_level = false,
+    };
+    const a = try Ast.parse(allocator, try r.source(allocator, opts), .zig);
     try a.render(allocator, &w.writer, .{});
     const expected =
         \\struct {

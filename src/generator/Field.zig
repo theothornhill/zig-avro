@@ -2,7 +2,8 @@ const std = @import("std");
 const Writer = std.Io.Writer;
 const Ast = std.zig.Ast;
 
-const Schema = @import("Schema.zig").Schema;
+const s = @import("Schema.zig");
+const Schema = s.Schema;
 const Default = @import("Default.zig").Default;
 
 name: []const u8,
@@ -13,11 +14,15 @@ aliases: ?[][]const u8 = null,
 default: Default = .none,
 namespace: ?[]const u8 = null,
 
-pub fn source(self: @This(), allocator: std.mem.Allocator) ![:0]const u8 {
+pub fn source(
+    self: @This(),
+    allocator: std.mem.Allocator,
+    comptime opts: s.SourceOptions,
+) ![:0]const u8 {
     return try std.fmt.allocPrintSentinel(allocator, "{s}: {s}{s},", .{
         self.name,
-        try self.type.source(allocator, false, true),
-        try self.default.source(self.type.*),
+        try self.type.source(allocator, opts.allowTypeRef()),
+        try self.default.source(self.type.*, opts),
     }, 0);
 }
 
@@ -38,7 +43,12 @@ test "Field" {
     var w: Writer.Allocating = .init(allocator);
     defer w.deinit();
 
-    const a = try Ast.parse(allocator, try f.source(allocator), .zig);
+    const opts: s.SourceOptions = .{
+        .can_be_typeref = false,
+        .serde_type = .deserialize,
+        .top_level = false,
+    };
+    const a = try Ast.parse(allocator, try f.source(allocator, opts), .zig);
     try a.render(allocator, &w.writer, .{});
 
     const expected =

@@ -1,7 +1,8 @@
 const std = @import("std");
 const json = std.json;
 
-const SchemaType = @import("Schema.zig").SchemaType;
+const schema = @import("Schema.zig");
+const SchemaType = schema.SchemaType;
 
 pub const Default = union(enum) {
     none,
@@ -33,7 +34,11 @@ pub const Default = union(enum) {
         return .{ .val = src };
     }
 
-    pub fn source(self: @This(), schema_type: SchemaType) ![:0]const u8 {
+    pub fn source(
+        self: @This(),
+        schema_type: SchemaType,
+        comptime opts: schema.SourceOptions,
+    ) ![:0]const u8 {
         return switch (self) {
             .none => "",
             .val => |v| switch (v) {
@@ -47,8 +52,14 @@ pub const Default = union(enum) {
                 .bool => " = false",
                 .integer => " = 0",
                 .float => " = 0.0",
-                .object => " = .{}",
-                .array => " = .{}",
+                .object => switch (opts.serde_type) {
+                    .deserialize => " = .{}",
+                    .serialize => " = .from(.empty)",
+                },
+                .array => switch (opts.serde_type) {
+                    .deserialize => " = .{}",
+                    .serialize => " = .from(&.{})",
+                },
                 else => " = null",
             },
         };

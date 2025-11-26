@@ -2,6 +2,7 @@ const std = @import("std");
 const Writer = std.Io.Writer;
 const Ast = std.zig.Ast;
 
+const s = @import("Schema.zig");
 const Default = @import("Default.zig").Default;
 const names = @import("names.zig");
 
@@ -42,8 +43,9 @@ pub fn source(self: @This(), allocator: std.mem.Allocator) ![:0]const u8 {
 pub fn typeRef(
     self: @This(),
     allocator: std.mem.Allocator,
+    opts: s.SourceOptions,
 ) ![:0]const u8 {
-    if (self.name.len > 0) {
+    if (opts.can_be_typeref and self.name.len > 0) {
         return if (self.namespace) |ns|
             try std.fmt.allocPrintSentinel(
                 allocator,

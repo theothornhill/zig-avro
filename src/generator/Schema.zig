@@ -13,10 +13,44 @@ const Fixed = @import("Fixed.zig");
 const Literal = @import("Literal.zig");
 const names = @import("names.zig");
 
+pub const SerdeType = enum {
+    serialize,
+    deserialize,
+    pub fn invocation(self: SerdeType) [:0]const u8 {
+        return switch (self) {
+            .serialize =>
+            \\pub fn @"⚙️serialize"(self: *const @This(), writer: *std.Io.Writer) !void {
+            \\  _ = try avro.Serialize.write(@This(), writer, self);
+            \\}
+            \\
+            ,
+            .deserialize =>
+            \\pub fn @"⚙️deserialize"(self: *@This(), data: []const u8) !void {
+            \\  _ = try avro.Deserialize.read(@This(), self, data);
+            \\}
+            \\
+            ,
+        };
+    }
+};
+pub const SourceOptions = struct {
+    top_level: bool,
+    can_be_typeref: bool,
+    serde_type: SerdeType,
+    pub fn allowTypeRef(self: SourceOptions) SourceOptions {
+        var new = self;
+        new.top_level = false;
+        new.can_be_typeref = true;
+        return new;
+    }
+    pub fn clearTopLevel(self: SourceOptions) SourceOptions {
+        var new = self;
+        new.top_level = false;
+        return new;
+    }
+};
 pub var SchemaMap: std.StringHashMap(std.StringHashMap(Schema)) = .init(std.heap.page_allocator);
-pub var canPut: bool = true;
 fn put(spec_namespace: ?[]const u8, spec_name: []const u8, value: Schema) !void {
-    if (!canPut) @panic("stop it");
     if (spec_name.len == 0) @panic("no name");
     const ns = names.NS.resolve(spec_namespace, spec_name);
     const gop = try SchemaMap.getOrPut(ns.namespace orelse "");
@@ -180,18 +214,17 @@ pub const Schema = union(SchemaType) {
     pub fn source(
         self: @This(),
         allocator: std.mem.Allocator,
-        comptime top_level: bool,
-        comptime can_be_typeref: bool,
+        comptime opts: SourceOptions,
     ) anyerror![:0]const u8 {
         return try switch (self) {
-            .record => |r| if (can_be_typeref) r.typeRef(allocator, top_level) else r.source(allocator, top_level),
-            .@"enum" => |e| if (can_be_typeref) e.typeRef(allocator) else e.source(allocator),
-            .array => |a| a.source(allocator, top_level),
-            .map => |m| m.source(allocator),
+            .record => |r| r.typeRef(allocator, opts),
+            .@"enum" => |e| e.typeRef(allocator, opts),
+            .array => |a| a.source(allocator, opts),
+            .map => |m| m.source(allocator, opts),
             .literal => |l| {
                 const schema = try get(l.namespace, l.value);
                 return try if (schema) |s|
-                    s.source(allocator, top_level, can_be_typeref)
+                    s.source(allocator, opts)
                 else
                     l.source(allocator);
             },
@@ -207,11 +240,11 @@ pub const Schema = union(SchemaType) {
                                 ) orelse un[1];
 
                                 return try std.fmt.allocPrintSentinel(allocator, "?{s}", .{
-                                    try schema.source(allocator, top_level, true),
+                                    try schema.source(allocator, opts.allowTypeRef()),
                                 }, 0);
                             }
                             return try std.fmt.allocPrintSentinel(allocator, "?{s}", .{
-                                try un[1].source(allocator, top_level, true),
+                                try un[1].source(allocator, opts.allowTypeRef()),
                             }, 0);
                         }
                     }
@@ -235,7 +268,7 @@ pub const Schema = union(SchemaType) {
                     const src = try std.fmt.allocPrintSentinel(
                         allocator,
                         "{s}",
-                        .{try u.source(allocator, top_level, true)},
+                        .{try u.source(allocator, opts.allowTypeRef())},
                         0,
                     );
 
@@ -257,6 +290,7 @@ pub const Schema = union(SchemaType) {
         self: *@This(),
         allocator: std.mem.Allocator,
         writer: *Writer,
+        comptime serdeType: SerdeType,
     ) !void {
         // This generator is only for schemas with a top level record
         if (self.* != .record) return error.UnsupportedSchema;
@@ -267,11 +301,20 @@ pub const Schema = union(SchemaType) {
         try writer.print("const std = @import(\"std\");\n", .{});
         try writer.print("const avro = @import(\"zig-avro\");\n\n", .{});
 
-        try self.decorate(null);
-        canPut = false;
+        var a = try Ast.parse(allocator, serdeType.invocation(), .zig);
+        try a.render(allocator, writer, .{});
+        try writer.print("\n", .{});
 
-        const src = try self.source(allocator, true, false);
-        var a = try Ast.parse(allocator, src, .zig);
+        SchemaMap.clearRetainingCapacity();
+        try self.decorate(null);
+
+        const baseOpts: SourceOptions = .{
+            .top_level = true,
+            .can_be_typeref = false,
+            .serde_type = serdeType,
+        };
+        const src = try self.source(allocator, baseOpts);
+        a = try Ast.parse(allocator, src, .zig);
         try a.render(allocator, writer, .{});
 
         var ns_it = SchemaMap.iterator();
@@ -285,7 +328,7 @@ pub const Schema = union(SchemaType) {
             var n_it = ns_entry.value_ptr.iterator();
             while (n_it.next()) |n_entry| {
                 try ns_writer.print("const {f} = ", .{std.zig.fmtId(n_entry.key_ptr.*)});
-                const r_src = try n_entry.value_ptr.source(allocator, false, false);
+                const r_src = try n_entry.value_ptr.source(allocator, baseOpts.clearTopLevel());
                 try ns_writer.writeAll(r_src);
                 try ns_writer.print(";\n", .{});
             }
@@ -293,8 +336,8 @@ pub const Schema = union(SchemaType) {
 
             const ns_src = try ns_aw.toOwnedSliceSentinel(0);
             defer allocator.free(ns_src);
-            var a2 = try Ast.parse(allocator, ns_src, .zig);
-            try a2.render(allocator, writer, .{});
+            a = try Ast.parse(allocator, ns_src, .zig);
+            try a.render(allocator, writer, .{});
         }
         try writer.flush();
     }
@@ -318,7 +361,7 @@ pub const Schema = union(SchemaType) {
 
         for (schema_files, result_files) |file, expected| {
             var schema = try json.parseFromSliceLeaky(Schema, allocator, file, parse_opts);
-            try schema.render(allocator, &w.writer);
+            try schema.render(allocator, &w.writer, .deserialize);
             try std.testing.expectEqualStrings(expected, w.written());
             try w.writer.flush();
             w.clearRetainingCapacity();

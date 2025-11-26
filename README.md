@@ -13,7 +13,7 @@ pub const ReadLol = struct {
 test "foo" {
     var buf: [2]u8 = .{0x1, 0x0};
     var r: ReadLol = undefined;
-    _ = try avro.Reader.read(ReadLol &r, &buf);
+    _ = try avro.Deserializer.read(ReadLol &r, &buf);
 
     try std.testing.expectEqual(true, r.foo);
     try std.testing.expectEqual(false, r.bar);
@@ -32,51 +32,71 @@ const avro = @import("zig-avro");
 const Record = struct { b: bool = false };
 
 var buf: [10]u8 = undefined;
-var writer: Writer = .fixed(&buf);
+var writer: Serializer = .fixed(&buf);
 
 var r = Record{ .b = true };
 
-const written = try avro.encode(Record, &r, &writer);
+const written = try avro.Serialize.write(Record, &writer, &r);
 
 try std.testing.expectEqual(1, buf[0]);
 ```
 
-For Arrays (and for Maps are just Arrays of entry records), you will
-need to supply an "iterable" for the data:
+For Arrays or Maps, you need to provide a type that defines `⚙️iterator()`.
+If your source data is available as a slice `[]const T`, you can use the
+provided `SliceArray`:
 ```zig
 const std = @import("std");
 const avro = @import("zig-avro");
 
 const FootballTeam = struct {
     name: []const u8,
-    player_ids: avro.Array(i32),
+    player_ids: avro.Serialize.SliceArray(i32),
 };
 
 var buf: [50]u8 = undefined;
-var writer: Writer = .fixed(&buf);
+var writer: std.Io.Writer = .fixed(&buf);
 
 var t = FootballTeam{
     .name = "Zig Avro Oldboys",
-    .player_ids = .{},
+    .player_ids = .from(&.{ 11, 23, 99, 45, 22, 84, 92, 88, 24, 1, 8 }),
 };
-var ids = [_]i32{ 11, 23, 99, 45, 22, 84, 92, 88, 24, 1, 8 };
 
-// If you have data as as slice, we can use the helper to give us
-// an iterable over it.
-// Otherwise, see Iterable/Iterator source code for how to implement
-// an iterable.
-var ictx = avro.iter.SliceIterableContext(i32){};
-t.player_ids.iterable = ictx.iterable(&ids);
-
-const written = try avro.Writer.write(FootballTeam, &writer, &t);
+const written = try avro.Serialize.write(FootballTeam, &writer, &t);
 
 try std.testing.expectEqualStrings("Avro", buf[5..9]);
-try std.testing.expectEqual(44, written);
+try std.testing.expectEqual(34, written);
+```
+
+If your source data is available in a `std.StringHashMap(T)` (or something
+that quacks the same, like `std.StringArrayHashMap(T)`), you can use the
+provided `StringMap`:
+```zig
+const std = @import("std");
+const avro = @import("zig-avro");
+
+const Properties = std.StringHashMap([]const u8);
+const T = struct {
+    properties: avro.Serialize.StringMap(Properties),
+};
+
+var propsMap: Properties = .init(std.testing.allocator);
+defer propsMap.deinit();
+try propsMap.put("hello", "world");
+var t: T = .{ .properties = .from(&propsMap) };
+
+var buf: [100]u8 = undefined;
+var writer: std.Io.Writer = .fixed(&buf);
+
+const written = try avro.Serialize.write(T, &writer, &t);
+
+try std.testing.expectEqualStrings("hello", buf[2..7]);
+try std.testing.expectEqualStrings("world", buf[8..13]);
+try std.testing.expectEqual(14, written);
 ```
 
 ## How to generate structs
 
-We assume you have `.avsc` files in a directory called `avro` in root.
+We assume you have `.avsc` files in a directory called `avro` in the current working directory.
 
 In `build.zig`:
 ```zig

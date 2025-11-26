@@ -16,16 +16,16 @@ venue: ?Venue = null,
 venueId: ?[]const u8 = null,
 venueNeutralGround: bool,
 priority: i32,
-platforms: avro.Array([]const u8),
+platforms: avro.Deserialize.Array([]const u8),
 startDate: ?i32 = null,
 startDateTime: ?i64 = null,
 status: EventStatus = .UNKNOWN,
 statusDescription: EventStatusDescription = .UNKNOWN,
-images: avro.Array(Image) = .{},
-programs: avro.Array(ProgramInfo) = .{},
-participants: avro.Array(EventParticipantsParticipant) = .{},
+images: avro.Deserialize.Array(Image) = .{},
+programs: avro.Deserialize.Array(ProgramInfo) = .{},
+participants: avro.Deserialize.Array(EventParticipantsParticipant) = .{},
 deleted: bool,
-properties: avro.Map([]const u8) = .{},
+properties: avro.Deserialize.Map([]const u8) = .{},
 const ProgramInfo = struct {
     assetId: ?[]const u8 = null,
     assetDuration: ?[]const u8 = null,
@@ -34,7 +34,7 @@ const ProgramInfo = struct {
     airTime: ?i64 = null,
     live: bool,
     channel: Channel = .UNKNOWN,
-    channels: avro.Array(Channel) = .{},
+    channels: avro.Deserialize.Array(Channel) = .{},
 };
 const EventLargeProjection = struct {
     id: []const u8,
@@ -50,16 +50,16 @@ const EventLargeProjection = struct {
     venueId: ?[]const u8 = null,
     venueNeutralGround: bool,
     priority: i32,
-    platforms: avro.Array([]const u8),
+    platforms: avro.Deserialize.Array([]const u8),
     startDate: ?i32 = null,
     startDateTime: ?i64 = null,
     status: EventStatus = .UNKNOWN,
     statusDescription: EventStatusDescription = .UNKNOWN,
-    images: avro.Array(Image) = .{},
-    programs: avro.Array(ProgramInfo) = .{},
-    participants: avro.Array(EventParticipantsParticipant) = .{},
+    images: avro.Deserialize.Array(Image) = .{},
+    programs: avro.Deserialize.Array(ProgramInfo) = .{},
+    participants: avro.Deserialize.Array(EventParticipantsParticipant) = .{},
     deleted: bool,
-    properties: avro.Map([]const u8) = .{},
+    properties: avro.Deserialize.Map([]const u8) = .{},
 };
 const ImageType = enum {
     ICON,
@@ -81,9 +81,9 @@ const Venue = struct {
     masterId: ?[]const u8 = null,
     name: []const u8,
     countryId: ?[]const u8 = null,
-    images: avro.Array(Image) = .{},
+    images: avro.Deserialize.Array(Image) = .{},
     deleted: bool,
-    properties: avro.Map([]const u8) = .{},
+    properties: avro.Deserialize.Map([]const u8) = .{},
 };
 const PlatformType = enum {
     WEB,
@@ -96,8 +96,8 @@ const EventParticipantsParticipant = struct {
     number: i32,
     participant: ParticipantProjection,
     lineupConfirmed: bool = false,
-    results: avro.Array(Result) = .{},
-    properties: avro.Map([]const u8) = .{},
+    results: avro.Deserialize.Array(Result) = .{},
+    properties: avro.Deserialize.Map([]const u8) = .{},
 };
 const ParticipantProjection = struct {
     id: []const u8,
@@ -106,10 +106,10 @@ const ParticipantProjection = struct {
     gender: Gender = "UNDEFINED",
     type: ParticipantType = .UNDEFINED,
     country: ?ParticipantCountry = null,
-    images: avro.Array(Image) = .{},
+    images: avro.Deserialize.Array(Image) = .{},
     toBeDecided: bool,
     deleted: bool,
-    properties: avro.Map([]const u8) = .{},
+    properties: avro.Deserialize.Map([]const u8) = .{},
 };
 const ResultType = enum {
     ORDINARY_TIME,
@@ -218,11 +218,11 @@ const TournamentProjection = struct {
     startDate: ?i64 = null,
     endDate: ?i64 = null,
     priority: i32,
-    platforms: avro.Array([]const u8),
-    images: avro.Array(Image) = .{},
+    platforms: avro.Deserialize.Array([]const u8),
+    images: avro.Deserialize.Array(Image) = .{},
     active: bool,
     deleted: bool,
-    properties: avro.Map([]const u8) = .{},
+    properties: avro.Deserialize.Map([]const u8) = .{},
 };
 const EventStatusDescription = enum {
     PLAYOFF_INTERRUPTED,
@@ -407,10 +407,10 @@ const TournamentTemplateProjection = struct {
     name: []const u8,
     gender: Gender = .UNDEFINED,
     priority: i32,
-    platforms: avro.Array([]const u8) = .{},
-    images: avro.Array(Image) = .{},
+    platforms: avro.Deserialize.Array([]const u8) = .{},
+    images: avro.Deserialize.Array(Image) = .{},
     deleted: bool,
-    properties: avro.Map([]const u8) = .{},
+    properties: avro.Deserialize.Map([]const u8) = .{},
 };
 const EventStatus = enum {
     INTERRUPTED,
@@ -436,7 +436,7 @@ const Channel = enum {
 const ParticipantCountry = struct {
     id: []const u8,
     name: []const u8,
-    images: avro.Array(Image),
+    images: avro.Deserialize.Array(Image),
 };
 const Result = struct {
     value: ?[]const u8,
@@ -503,11 +503,11 @@ const TournamentStageProjection = struct {
     startDate: ?i64 = null,
     endDate: ?i64 = null,
     priority: i32,
-    platforms: avro.Array([]const u8) = .{},
-    images: avro.Array(Image) = .{},
+    platforms: avro.Deserialize.Array([]const u8) = .{},
+    images: avro.Deserialize.Array(Image) = .{},
     active: bool,
     deleted: bool,
-    properties: avro.Map([]const u8) = .{},
+    properties: avro.Deserialize.Map([]const u8) = .{},
 };
 const Image = struct {
     type: ImageType = .UNKNOWN,
@@ -516,7 +516,7 @@ const Image = struct {
     width: ?i32 = null,
     height: ?i32 = null,
     platform: PlatformType = .UNKNOWN,
-    properties: avro.Map([]const u8) = .{},
+    properties: avro.Deserialize.Map([]const u8) = .{},
 };
 const ParticipantType = enum {
     ATHLETE,
