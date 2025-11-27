@@ -56,12 +56,12 @@ pub fn SliceArray(T: type) type {
     };
 }
 
-// Supports things that quack like std.StringHashMap
+// Supports things that quack like std.StringHashMapUnmanaged
 pub fn StringMap(Map: type) type {
     return struct {
-        const Entry = struct { key: []const u8, value: @FieldType(Map.KV, "value") };
+        pub const Entry = struct { key: []const u8, value: @FieldType(Map.KV, "value") };
         const ThisStringMap = @This();
-        src: *Map,
+        src: *const Map,
         @"⚙️len": usize,
         const Iterator = struct {
             it: Map.Iterator,
@@ -76,7 +76,7 @@ pub fn StringMap(Map: type) type {
         pub fn @"⚙️iterator"(self: ThisStringMap) Iterator {
             return .{ .it = self.src.iterator() };
         }
-        pub fn from(map: *Map) ThisStringMap {
+        pub fn from(map: *const Map) ThisStringMap {
             return .{ .src = map, .@"⚙️len" = map.count() };
         }
     };

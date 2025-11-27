@@ -67,7 +67,7 @@ try std.testing.expectEqualStrings("Avro", buf[5..9]);
 try std.testing.expectEqual(34, written);
 ```
 
-If your source data is available in a `std.StringHashMap(T)` (or something
+If your source data is available in a `std.StringHashMapUnmanaged(T)` (or something
 that quacks the same, like `std.StringArrayHashMap(T)`), you can use the
 provided `StringMap`:
 ```zig

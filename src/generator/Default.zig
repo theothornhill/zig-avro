@@ -54,7 +54,7 @@ pub const Default = union(enum) {
                 .float => " = 0.0",
                 .object => switch (opts.serde_type) {
                     .deserialize => " = .{}",
-                    .serialize => " = .from(.empty)",
+                    .serialize => " = .from(&.empty)",
                 },
                 .array => switch (opts.serde_type) {
                     .deserialize => " = .{}",
