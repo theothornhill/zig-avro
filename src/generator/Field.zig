@@ -5,6 +5,7 @@ const Ast = std.zig.Ast;
 const s = @import("Schema.zig");
 const Schema = s.Schema;
 const Default = @import("Default.zig").Default;
+const names = @import("names.zig");
 
 name: []const u8,
 doc: ?[]const u8 = null,
@@ -19,10 +20,21 @@ pub fn source(
     allocator: std.mem.Allocator,
     comptime opts: s.SourceOptions,
 ) ![:0]const u8 {
+    const fieldType = switch (self.type.*) {
+        .literal => |l| get: {
+            const typeNsAbs = names.NS.resolve(null, l.value);
+            const typeNsScoped = names.NS.resolve(self.namespace, l.value);
+            if (try s.get(typeNsAbs.namespace, typeNsAbs.name)) |t| break :get t;
+            if (try s.get(typeNsScoped.namespace, typeNsScoped.name)) |t| break :get t;
+            break :get self.type;
+        },
+        else => self.type,
+    };
+
     return try std.fmt.allocPrintSentinel(allocator, "{s}: {s}{s},", .{
         self.name,
         try self.type.source(allocator, opts.allowTypeRef()),
-        try self.default.source(self.type.*, opts),
+        try self.default.source(fieldType.*, opts),
     }, 0);
 }
 
