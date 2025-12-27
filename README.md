@@ -1,3 +1,6 @@
+This repo has moved to [Codeberg](https://codeberg.org/theo/zig-avro)
+
+
 # zig-avro
 
 ## Examples
