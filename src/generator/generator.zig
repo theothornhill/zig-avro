@@ -54,7 +54,10 @@ pub fn main() !void {
     var dir = try cwd.openDir(args.schemaDir, .{ .iterate = true });
     var it = dir.iterate();
 
+    var @"😺 Happy to have found some schema files in the folder!" = false;
     while (it.next() catch null) |f| {
+        if (!std.mem.endsWith(u8, f.name, ".avsc")) continue;
+        @"😺 Happy to have found some schema files in the folder!" = true;
         const path = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ args.schemaDir, f.name });
 
         const input = try cwd.readFileAlloc(allocator, path, 1_000_000);
@@ -109,4 +112,6 @@ pub fn main() !void {
             try w.interface.flush();
         }
     }
+    if (!@"😺 Happy to have found some schema files in the folder!")
+        @panic("No schema in given folder");
 }
